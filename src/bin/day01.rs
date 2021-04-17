@@ -62,7 +62,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{fuel_for_mass, fuel_for_payload};
+    use crate::{fuel_for_mass, fuel_for_payload, part1, part2};
     use crate::util;
 
     #[test]
@@ -81,20 +81,20 @@ mod tests {
     }
 
     #[test]
-    fn test_sol1() {
+    fn test_part1() {
         let line = &[String::from("12")];
-        assert_eq!(sol1(line), 2);
-        let lines = util::lines_from_file("./input/01.txt");
+        assert_eq!(part1(line), 2);
+        let lines = util::lines_from_file("./input/day01.txt");
         let lines = lines.as_slice();
-        assert_eq!(sol1(lines), 3405637);
+        assert_eq!(part1(lines), 3405637);
     }
 
     #[test]
-    fn test_sol2() {
+    fn test_part2() {
         let line = &[String::from("12")];
-        assert_eq!(sol2(line), 2);
-        let lines = util::lines_from_file("./input/01.txt");
+        assert_eq!(part2(line), 2);
+        let lines = util::lines_from_file("./input/day01.txt");
         let lines = lines.as_slice();
-        assert_eq!(sol2(lines), 5105597);
+        assert_eq!(part2(lines), 5105597);
     }
 }
