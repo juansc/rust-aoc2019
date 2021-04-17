@@ -11,3 +11,4 @@ src/
  bin/    <-- Solutions live here, organized by day
 ```
 
+Each file has tests and a main function. Running main will output the answer for each puzzle. 
