@@ -86,7 +86,7 @@ impl Segment {
 
 fn wire_segments(input: &str) -> Vec<Segment> {
     let mut p = Point::new(0, 0);
-    let mut new_point ;
+    let mut new_point;
     let mut segments = vec![];
     for line in input.split(",") {
         // Grab just the first character
@@ -114,6 +114,21 @@ fn wire_segments(input: &str) -> Vec<Segment> {
     segments
 }
 
+fn get_intersections(segments1: Vec<&Segment>, segments2: Vec<&Segment>) -> Vec<Point> {
+    let mut intersections: Vec<Point> = Vec::new();
+    for seg1 in segments1.iter() {
+        for seg2 in segments2.iter() {
+            match seg1.intersection(seg2) {
+                Some(p) => {
+                    intersections.push(p)
+                }
+                None => {}
+            }
+        }
+    }
+    intersections
+}
+
 fn part1(lines: Vec<String>) -> u32 {
     let wire1 = wire_segments(&lines[0]);
     let wire2 = wire_segments(&lines[1]);
@@ -126,46 +141,24 @@ fn part1(lines: Vec<String>) -> u32 {
 
     let mut min_distance = u32::MAX;
 
-    for segment1 in wire1_h.iter() {
-        for segment2 in wire2_v.iter() {
-            match segment1.intersection(segment2) {
-                Some(intersection) => {
-                    if intersection == origin {
-                        continue;
-                    }
-                    let d = intersection.l1_distance(origin);
-                    if d < min_distance {
-                        min_distance = d;
-                    }
-                }
-                None => {}
-            }
-        }
+    let points: Vec<Point> = get_intersections(wire1_h, wire2_v).
+        into_iter().
+        chain(get_intersections(wire1_v, wire2_h)).
+        filter(|p| *p != origin).
+        // map(|p| p.l1_distance(origin)).
+        // min().
+        collect();
+
+    for p in points {
+        min_distance = min(p.l1_distance(origin), min_distance);
     }
 
-    for segment1 in wire1_v.iter() {
-        for segment2 in wire2_h.iter() {
-            match segment1.intersection(segment2) {
-                Some(intersection) => {
-                    if intersection == origin {
-                        continue;
-                    }
-                    let d = intersection.l1_distance(origin);
-                    if d < min_distance {
-                        min_distance = d;
-                    }
-                }
-                None => (),
-            }
-        }
-    }
     min_distance as u32
 }
 
 fn main() {
     let lines = util::lines_from_file("./input/day03.txt");
     println!("Part 1 Solution: {}", part1(lines))
-
 }
 
 #[cfg(test)]
