@@ -139,21 +139,18 @@ fn part1(lines: Vec<String>) -> u32 {
     let wire1_v: Vec<&Segment> = wire1.iter().filter(|l| l.is_vertical()).collect();
     let wire2_v: Vec<&Segment> = wire2.iter().filter(|l| l.is_vertical()).collect();
 
-    let mut min_distance = u32::MAX;
-
-    let points: Vec<Point> = get_intersections(wire1_h, wire2_v).
+    // Collect all the intersections...
+    get_intersections(wire1_h, wire2_v).
         into_iter().
         chain(get_intersections(wire1_v, wire2_h)).
+        // An intersection is only valid if it's not the origin
         filter(|p| *p != origin).
-        // map(|p| p.l1_distance(origin)).
-        // min().
-        collect();
-
-    for p in points {
-        min_distance = min(p.l1_distance(origin), min_distance);
-    }
-
-    min_distance as u32
+        // Get the distance that is the closest to the origin
+        map(|p| p.l1_distance(origin)).
+        min().
+        // Panic if no intersections were found. Given the scope of this project, we should
+        // just panic instead of handling this gracefully.
+        expect("no intersections found") as u32
 }
 
 fn main() {
