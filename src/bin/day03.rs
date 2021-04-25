@@ -38,6 +38,10 @@ impl Segment {
         Segment { a, b }
     }
 
+    fn length(&self) -> u32 {
+        return self.a.l1_distance(self.b)
+    }
+
     fn contains(&self, p: &Point) -> bool {
         let x_min = min(self.a.x, self.b.x);
         let x_max = max(self.a.x, self.b.x);
@@ -81,6 +85,34 @@ impl Segment {
 
     fn is_parallel_to(&self, other: &Segment) -> bool {
         self.is_vertical() == other.is_vertical() && self.is_horizontal() == other.is_horizontal()
+    }
+
+    fn dist_to_point(&self, p: &Point) -> u32 {
+        // TODO: Should this error if it does not contain the point?
+        if !self.contains(p) {
+           return 0
+        }
+        return self.a.l1_distance(*p)
+    }
+}
+
+struct Wire {
+    segments: Vec<Segment>
+}
+
+impl Wire {
+    /// distance_to returns the distance to the given point from the beginning of the wire. Note
+    /// that the distance is calculating by traversing the wire segment by segment until the point
+    /// is reached.
+    fn distance_to(&self, p: &Point) -> Option<u32> {
+        let mut d : u32 = 0;
+        for seg in &self.segments {
+            if seg.contains(p) {
+                return Some(d + seg.dist_to_point(p))
+            }
+            d += seg.length();
+        }
+        return None
     }
 }
 
@@ -129,11 +161,12 @@ fn get_intersections(segments1: Vec<&Segment>, segments2: Vec<&Segment>) -> Vec<
     intersections
 }
 
-fn part1(lines: Vec<String>) -> u32 {
+fn part1(lines: &Vec<String>) -> u32 {
     let wire1 = wire_segments(&lines[0]);
     let wire2 = wire_segments(&lines[1]);
     let origin = Point::new(0, 0);
 
+    // TODO: Create a function that returns the vertical and horizontal segments
     let wire1_h: Vec<&Segment> = wire1.iter().filter(|l| l.is_horizontal()).collect();
     let wire2_h: Vec<&Segment> = wire2.iter().filter(|l| l.is_horizontal()).collect();
     let wire1_v: Vec<&Segment> = wire1.iter().filter(|l| l.is_vertical()).collect();
@@ -153,16 +186,41 @@ fn part1(lines: Vec<String>) -> u32 {
         expect("no intersections found") as u32
 }
 
+fn part2(lines: &Vec<String>) -> u32 {
+    let wire1 = Wire{segments: wire_segments(&lines[0])};
+    let wire2 = Wire{segments: wire_segments(&lines[1])};
+    let origin = Point::new(0, 0);
+
+    let wire1_h: Vec<&Segment> = wire1.segments.iter().filter(|l| l.is_horizontal()).collect();
+    let wire2_h: Vec<&Segment> = wire2.segments.iter().filter(|l| l.is_horizontal()).collect();
+    let wire1_v: Vec<&Segment> = wire1.segments.iter().filter(|l| l.is_vertical()).collect();
+    let wire2_v: Vec<&Segment> = wire2.segments.iter().filter(|l| l.is_vertical()).collect();
+
+    // Collect all the intersections...
+    get_intersections(wire1_h, wire2_v).
+        into_iter().
+        chain(get_intersections(wire1_v, wire2_h)).
+        // An intersection is only valid if it's not the origin
+        filter(|p| *p != origin).
+        // For each point calculate the distance from beginning of each wire and add it
+        map(|p| wire1.distance_to(&p).unwrap() + wire2.distance_to(&p).unwrap()).
+        min().
+        // Panic if no intersections were found. Given the scope of this project, we should
+        // just panic instead of handling this gracefully.
+        expect("no intersections found") as u32
+}
+
 fn main() {
     let lines = util::lines_from_file("./input/day03.txt");
-    println!("Part 1 Solution: {}", part1(lines))
+    println!("Part 1 Solution: {}", part1(&lines));
+    println!("Part 2 Solution: {}", part2(&lines));
 }
 
 #[cfg(test)]
 mod tests {
     use aoc2019::util;
 
-    use crate::{part1, Point, Segment, wire_segments};
+    use crate::{part1, Point, Segment, wire_segments, part2};
 
     #[test]
     fn test_point_l1_distance() {
@@ -233,24 +291,30 @@ mod tests {
     #[test]
     fn test_part1() {
         let lines = util::lines_from_file("./input/day03.txt");
-        assert_eq!(part1(lines), 375)
+        assert_eq!(part1(&lines), 375)
+    }
+
+    #[test]
+    fn test_part2() {
+        let lines = util::lines_from_file("./input/day03.txt");
+        assert_eq!(part2(&lines), 14746)
     }
 
     #[test]
     fn test_part1_basic() {
         let lines = vec![String::from("R8,U5,L5,D3"), String::from("U7,R6,D4,L4")];
-        assert_eq!(part1(lines), 6);
+        assert_eq!(part1(&lines), 6);
 
         let lines = vec![
             String::from("R75,D30,R83,U83,L12,D49,R71,U7,L72"),
             String::from("U62,R66,U55,R34,D71,R55,D58,R83"),
         ];
-        assert_eq!(part1(lines), 159);
+        assert_eq!(part1(&lines), 159);
 
         let lines = vec![
             String::from("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51"),
             String::from("U98,R91,D20,R16,D67,R40,U7,R15,U6,R7"),
         ];
-        assert_eq!(part1(lines), 135);
+        assert_eq!(part1(&lines), 135);
     }
 }
