@@ -137,7 +137,7 @@ fn wire_segments(input: &str) -> Vec<Segment> {
     let mut p = Point::new(0, 0);
     let mut new_point;
     let mut segments = vec![];
-    for line in input.split(",") {
+    for line in input.split(',') {
         // Grab just the first character
         let direction = &line[0..1];
         // Grab the rest of the string and parse to i32
@@ -159,9 +159,8 @@ fn get_intersections(segments1: Vec<&Segment>, segments2: Vec<&Segment>) -> Vec<
     let mut intersections: Vec<Point> = Vec::new();
     for seg1 in segments1.iter() {
         for seg2 in segments2.iter() {
-            match seg1.intersection(seg2) {
-                Some(p) => intersections.push(p),
-                None => {}
+            if let Some(p) = seg1.intersection(seg2) {
+                intersections.push(p)
             }
         }
     }
