@@ -73,7 +73,7 @@ impl Segment {
         if !self.contains(&p) || !other.contains(&p) {
             return None;
         }
-        // If the intersecion point is an endpoint on both segments then the wires
+        // If the intersection point is an endpoint on both segments then the wires
         // just intersected at an elbow, which doesn't count
         if (p == self.a || p == self.b) && (p == other.a || p == other.b) {
             return None;

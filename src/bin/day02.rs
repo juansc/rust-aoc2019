@@ -54,7 +54,7 @@ mod tests {
         let memory: Vec<i32> = util::lines_from_file("./input/day02.txt")
             .first()
             .unwrap()
-            .split(",")
+            .split(',')
             .map(|x| x.parse::<i32>())
             .filter_map(Result::ok)
             .collect();
@@ -67,7 +67,7 @@ mod tests {
         let memory: Vec<i32> = util::lines_from_file("./input/day02.txt")
             .first()
             .unwrap()
-            .split(",")
+            .split(',')
             .map(|x| x.parse::<i32>())
             .filter_map(Result::ok)
             .collect();
