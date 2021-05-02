@@ -39,7 +39,7 @@ fn collapse(lines: &[String], mass_fn: fn(usize) -> usize) -> usize {
         // Only keep successful parses
         .filter_map(Result::ok)
         // Now apply the mass function
-        .map(|n| mass_fn(n))
+        .map(mass_fn)
         // sum. Note that we exclude a ; so this whole statement is an expression
         .sum()
 }

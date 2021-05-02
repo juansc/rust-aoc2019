@@ -12,8 +12,8 @@ struct Point {
 }
 
 impl Point {
-    fn new(x: i32, y: i32) -> Point {
-        return Point { x, y };
+    fn new(x: i32, y: i32) -> Self {
+        Point { x, y }
     }
 
     fn l1_distance(&self, other: &Point) -> u32 {
@@ -39,7 +39,7 @@ impl Segment {
     }
 
     fn length(&self) -> u32 {
-        return self.a.l1_distance(&self.b);
+        self.a.l1_distance(&self.b)
     }
 
     fn contains(&self, p: &Point) -> bool {
@@ -47,7 +47,7 @@ impl Segment {
         let x_max = max(self.a.x, self.b.x);
         let y_min = min(self.a.y, self.b.y);
         let y_max = max(self.a.y, self.b.y);
-        return x_min <= p.x && p.x <= x_max && y_min <= p.y && p.y <= y_max;
+        x_min <= p.x && p.x <= x_max && y_min <= p.y && p.y <= y_max
     }
 
     fn intersection(&self, other: &Self) -> Option<Point> {
@@ -98,7 +98,7 @@ impl Segment {
         if !self.contains(p) {
             return 0;
         }
-        return self.a.l1_distance(p);
+        self.a.l1_distance(p)
     }
 }
 
@@ -121,7 +121,7 @@ impl Wire {
             }
             d += seg.length();
         }
-        return None;
+        None
     }
 
     fn horizontal_segments(&self) -> Vec<&Segment> {
@@ -168,7 +168,7 @@ fn get_intersections(segments1: Vec<&Segment>, segments2: Vec<&Segment>) -> Vec<
     intersections
 }
 
-fn part1(lines: &Vec<String>) -> u32 {
+fn part1(lines: &[String]) -> u32 {
     let wire1 = Wire::new(wire_segments(&lines[0]));
     let wire2 = Wire::new(wire_segments(&lines[1]));
     let origin = Point::new(0, 0);
@@ -187,7 +187,7 @@ fn part1(lines: &Vec<String>) -> u32 {
         expect("no intersections found") as u32
 }
 
-fn part2(lines: &Vec<String>) -> u32 {
+fn part2(lines: &[String]) -> u32 {
     let wire1 = Wire::new(wire_segments(&lines[0]));
     let wire2 = Wire::new(wire_segments(&lines[1]));
     let origin = Point::new(0, 0);

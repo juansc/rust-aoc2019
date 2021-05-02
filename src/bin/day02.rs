@@ -1,19 +1,19 @@
 use aoc2019::util;
 
-fn part1(memory: &Vec<i32>) -> i32 {
-    let mut mem = memory.clone();
+fn part1(memory: &[i32]) -> i32 {
+    let mut mem = memory.to_owned();
     // Set the noun and verb according to puzzle
     mem[1] = 12;
     mem[2] = 2;
     let mut computer1 = util::IntCodeComputer::new(mem);
     computer1.run();
-    return computer1.dump_memory().read(0);
+    computer1.dump_memory().read(0)
 }
 
-fn part2(memory: &Vec<i32>) -> i32 {
+fn part2(memory: &[i32]) -> i32 {
     for noun in 0..100 {
         for verb in 0..100 {
-            let mut mem = memory.clone();
+            let mut mem = memory.to_owned();
             mem[1] = noun;
             mem[2] = verb;
             let mut computer = util::IntCodeComputer::new(mem.clone());

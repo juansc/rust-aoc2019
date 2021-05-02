@@ -64,10 +64,10 @@ pub struct IntCodeComputer {
 impl IntCodeComputer {
     /// Returns an IntCodeComputer initialized with the given memory.
     pub fn new(memory: Vec<i32>) -> IntCodeComputer {
-        return IntCodeComputer {
+        IntCodeComputer {
             ptr: 0,
-            memory: Memory { memory: memory },
-        };
+            memory: Memory { memory },
+        }
     }
 
     /// execute evaluates a single instruction. It returns a code indicating whether the execution
@@ -75,7 +75,7 @@ impl IntCodeComputer {
     fn execute(&mut self) -> (i8, u32) {
         let last_ptr = self.ptr;
         let val = self.memory.read(self.ptr);
-        let out = match val {
+        match val {
             1 => {
                 let (a, b, addr) = self.parse_binary_op();
                 self.add(a, b, addr);
@@ -90,8 +90,7 @@ impl IntCodeComputer {
             }
             99 => (1, last_ptr),
             _ => (-1, last_ptr),
-        };
-        out
+        }
     }
 
     pub fn run(&mut self) {
@@ -211,6 +210,6 @@ mod tests {
     fn run_inc_code_computer(input: Vec<i32>) -> Vec<i32> {
         let mut computer = IntCodeComputer::new(input);
         computer.run();
-        return computer.dump_memory().memory;
+        computer.dump_memory().memory
     }
 }
