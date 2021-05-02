@@ -2,7 +2,7 @@
 
 ## Notes
 
-The code is organized into 
+The code is organized into
 
 ```
 src/

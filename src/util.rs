@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, prelude::*},
+    io::{prelude::*, BufReader},
     path::Path,
 };
 
@@ -64,7 +64,10 @@ pub struct IntCodeComputer {
 impl IntCodeComputer {
     /// Returns an IntCodeComputer initialized with the given memory.
     pub fn new(memory: Vec<i32>) -> IntCodeComputer {
-        return IntCodeComputer { ptr: 0, memory: Memory { memory: memory } };
+        return IntCodeComputer {
+            ptr: 0,
+            memory: Memory { memory: memory },
+        };
     }
 
     /// execute evaluates a single instruction. It returns a code indicating whether the execution
@@ -98,7 +101,10 @@ impl IntCodeComputer {
             let (out, ptr_addr) = self.execute();
             match out {
                 1 => return,
-                -1 => panic!("encountered unknown opcode. Please inspect memory at {}", ptr_addr),
+                -1 => panic!(
+                    "encountered unknown opcode. Please inspect memory at {}",
+                    ptr_addr
+                ),
                 _ => (),
             }
             if counter >= 10000 {
@@ -110,7 +116,9 @@ impl IntCodeComputer {
     /// Returns a copy of memory. Note that this only represents a current snapshot; it will not be
     /// updated.
     pub fn dump_memory(&self) -> Memory {
-        Memory { memory: self.memory.memory.clone() }
+        Memory {
+            memory: self.memory.memory.clone(),
+        }
     }
 
     fn parse_binary_op(&self) -> (i32, i32, u32) {
@@ -137,11 +145,13 @@ impl IntCodeComputer {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{Memory, IntCodeComputer};
+    use crate::util::{IntCodeComputer, Memory};
 
     #[test]
     fn test_read() {
-        let m = Memory { memory: vec![5, 4, 3, 2, 1] };
+        let m = Memory {
+            memory: vec![5, 4, 3, 2, 1],
+        };
         assert_eq!(m.read(0), 5);
         assert_eq!(m.read(1), 4);
         assert_eq!(m.read(2), 3);
@@ -151,7 +161,9 @@ mod tests {
 
     #[test]
     fn test_read_ptr() {
-        let m = Memory { memory: vec![1, 2, 3, 4, 0] };
+        let m = Memory {
+            memory: vec![1, 2, 3, 4, 0],
+        };
         assert_eq!(m.read_ptr(0), 2);
         assert_eq!(m.read_ptr(1), 3);
         assert_eq!(m.read_ptr(2), 4);
