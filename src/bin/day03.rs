@@ -16,12 +16,12 @@ impl Point {
         Point { x, y }
     }
 
-    fn l1_distance(&self, other: &Point) -> u32 {
+    fn l1_distance(&self, other: &Self) -> u32 {
         ((self.y - other.y).abs() + (self.x - other.x).abs()) as u32
     }
 
-    fn add(&self, other: &Point) -> Point {
-        Point::new(self.x + other.x, self.y + other.y)
+    fn add(&self, other: &Self) -> Self {
+        Self::new(self.x + other.x, self.y + other.y)
     }
 }
 
@@ -35,7 +35,7 @@ struct Segment {
 
 impl Segment {
     fn new(a: Point, b: Point) -> Self {
-        Segment { a, b }
+        Self { a, b }
     }
 
     fn length(&self) -> u32 {
@@ -89,7 +89,7 @@ impl Segment {
         self.a.y == self.b.y
     }
 
-    fn is_parallel_to(&self, other: &Segment) -> bool {
+    fn is_parallel_to(&self, other: &Self) -> bool {
         self.is_vertical() == other.is_vertical() && self.is_horizontal() == other.is_horizontal()
     }
 
@@ -108,7 +108,7 @@ struct Wire {
 
 impl Wire {
     fn new(segments: Vec<Segment>) -> Self {
-        Wire { segments }
+        Self { segments }
     }
     /// distance_to returns the distance to the given point from the beginning of the wire. Note
     /// that the distance is calculating by traversing the wire segment by segment until the point
