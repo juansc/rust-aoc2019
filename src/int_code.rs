@@ -46,8 +46,8 @@ pub struct IntCodeComputer {
 
 impl IntCodeComputer {
     /// Returns an IntCodeComputer initialized with the given memory.
-    pub fn new(memory: Vec<i32>) -> IntCodeComputer {
-        IntCodeComputer {
+    pub fn new(memory: Vec<i32>) -> Self {
+        Self {
             ptr: 0,
             memory: Memory { memory },
         }
@@ -127,7 +127,7 @@ impl IntCodeComputer {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{IntCodeComputer, Memory};
+    use crate::int_code::{IntCodeComputer, Memory};
 
     #[test]
     fn test_read() {
