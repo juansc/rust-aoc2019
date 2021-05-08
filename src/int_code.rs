@@ -1,5 +1,5 @@
 // IntCodeComputer Section
-enum DSRead {
+enum DsRead {
     // Signals that indicate a read could not succeed. Maybe make these errors?
     Closed,
     NoData,
@@ -44,17 +44,17 @@ impl DataStream {
         self.producer_ind += 1;
     }
 
-    fn read(&mut self) -> DSRead {
+    fn read(&mut self) -> DsRead {
         if self.is_closed {
-            return DSRead::Closed;
+            return DsRead::Closed;
         }
         // Consumer is all caught up to the producer, so there is currently no data
         if self.consumer_ind == self.producer_ind {
-            return DSRead::NoData;
+            return DsRead::NoData;
         }
         let out = self.buffer.read(self.consumer_ind);
         self.consumer_ind += 1;
-        DSRead::Data(out)
+        DsRead::Data(out)
     }
 
     fn close(&mut self) {
@@ -118,40 +118,12 @@ pub struct IntCodeComputer {
     output: DataStream,
 }
 
-struct Instruction {
-    op: Op,
-    modes: Vec<ParamMode>,
-}
-
-enum Op {
-    Add,
-    Mult,
-    Read,
-    Write,
-    End,
-}
-
-enum InstructionV2 {
+enum Instruction {
     Add { modes: [ParamMode; 3] },
     Mult { modes: [ParamMode; 3] },
     Read { modes: [ParamMode; 1] },
     Write { modes: [ParamMode; 1] },
     End,
-}
-
-impl Op {
-    fn parse(v: i32) -> Self {
-        match v {
-            1 => Op::Add,
-            2 => Op::Mult,
-            3 => Op::Read,
-            4 => Op::Write,
-            99 => Op::End,
-            _ => {
-                panic!("unexpected val for op code {}", v)
-            }
-        }
-    }
 }
 
 enum ParamMode {
@@ -171,30 +143,31 @@ impl ParamMode {
     }
 }
 
-fn parse_instruction(val: i32) -> InstructionV2 {
-    let op_code = Op::parse(val % 100);
+fn parse_instruction(val: i32) -> Instruction {
+    let op_code = val % 100;
     match op_code {
-        Op::Add => InstructionV2::Add {
+        1 => Instruction::Add {
             modes: [
                 ParamMode::parse((val / 100) % 10),
                 ParamMode::parse((val / 1000) % 10),
                 ParamMode::parse((val / 10000) % 10),
             ],
         },
-        Op::Mult => InstructionV2::Mult {
+        2 => Instruction::Mult {
             modes: [
                 ParamMode::parse(val / 100 % 10),
                 ParamMode::parse(val / 1000 % 10),
                 ParamMode::parse(val / 10000 % 10),
             ],
         },
-        Op::Read => InstructionV2::Read {
+        3 => Instruction::Read {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
-        Op::Write => InstructionV2::Write {
+        4 => Instruction::Write {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
-        Op::End => InstructionV2::End,
+        99 => Instruction::End,
+        _ => panic!("unexpected val for opcode {}", op_code),
     }
 }
 
@@ -216,7 +189,7 @@ impl IntCodeComputer {
         let instruction = parse_instruction(self.memory.read(self.ptr));
         match instruction {
             // Add
-            InstructionV2::Add { modes } => {
+            Instruction::Add { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
                 println!("{} {} {} ", a, b, addr);
                 self.add(a, b, addr);
@@ -224,21 +197,21 @@ impl IntCodeComputer {
                 (0, last_ptr)
             }
             // Mult
-            InstructionV2::Mult { modes } => {
+            Instruction::Mult { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
                 self.mult(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
             }
             // Save
-            InstructionV2::Read { modes } => match self.input.read() {
-                DSRead::Closed => {
+            Instruction::Read { modes: _ } => match self.input.read() {
+                DsRead::Closed => {
                     panic!("Reading from a closed data stream")
                 }
-                DSRead::NoData => {
+                DsRead::NoData => {
                     panic!("Attempting to read from data stream with no more data")
                 }
-                DSRead::Data(d) => {
+                DsRead::Data(d) => {
                     let addr = self.parse_unary_op();
                     self.memory.write(addr as u32, d);
                     self.ptr += 2;
@@ -246,13 +219,13 @@ impl IntCodeComputer {
                 }
             },
             // Output
-            InstructionV2::Write { modes } => {
+            Instruction::Write { modes: _ } => {
                 let val = self.memory.read_ptr(self.ptr + 1);
                 self.output.write(val);
                 self.ptr += 2;
                 (0, last_ptr)
             }
-            InstructionV2::End => (1, last_ptr),
+            Instruction::End => (1, last_ptr),
         }
     }
 
@@ -323,27 +296,27 @@ impl IntCodeComputer {
 
 #[cfg(test)]
 mod tests {
-    use crate::int_code::{DSRead, DataStream, IntCodeComputer, Memory};
+    use crate::int_code::{DataStream, DsRead, IntCodeComputer, Memory};
 
     #[test]
     fn test_basic_ds() {
         let mut ds = DataStream::new();
         // No data at first...
-        assert!(matches!(ds.read(), DSRead::NoData));
+        assert!(matches!(ds.read(), DsRead::NoData));
         // We can read some after we've added data, but only once
         ds.write(5);
-        assert!(matches!(ds.read(), DSRead::Data(5)));
-        assert!(matches!(ds.read(), DSRead::NoData));
+        assert!(matches!(ds.read(), DsRead::Data(5)));
+        assert!(matches!(ds.read(), DsRead::NoData));
 
         // We can keep reading up to where it wrote
         ds.write(10);
         ds.write(20);
-        assert!(matches!(ds.read(), DSRead::Data(10)));
-        assert!(matches!(ds.read(), DSRead::Data(20)));
-        assert!(matches!(ds.read(), DSRead::NoData));
+        assert!(matches!(ds.read(), DsRead::Data(10)));
+        assert!(matches!(ds.read(), DsRead::Data(20)));
+        assert!(matches!(ds.read(), DsRead::NoData));
 
         ds.close();
-        assert!(matches!(ds.read(), DSRead::Closed));
+        assert!(matches!(ds.read(), DsRead::Closed));
     }
 
     #[test]
