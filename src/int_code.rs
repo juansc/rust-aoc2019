@@ -263,6 +263,21 @@ impl IntCodeComputer {
     fn parse_trinary_op(&self, modes: [ParamMode; 3]) -> (i32, i32, u32) {
         let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
         let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
+        // The last param is never supposed to be interpreted as a pointer, it should be read
+        // as an immediate. However, according to docs, the last one is never an immediate, it's always
+        // a postitional. It seems like there are two types: ints and pointers. The first two arguments
+        // are ints. If in position mode, evaluate the POINTERS and you get the values that you must add
+        // together. If in immediate mode, just read the value. However, the last argument should just
+        // be read at face value -- when you read 0, it actually means "pointer to position 0". You
+        // can't write to "0", since that's a value, but you can write to "pointer to position 0". In
+        // this way, it technically is never in IMMEDIATE mode.
+        // The signature is something like this:
+        //   ADD(int, int, ptr)
+        // So when you read 01002, 0, 0, 0, you should read it as
+        // ADD(val_at(0), 0, ptr_to(0)), where val_at -> int and ptr_to -> ptr type.
+        // I'll see how the int code evolves, but I will probably have to change the type system
+        // to accomodate this apparently contradictory statement about the write arg never being
+        // in immediate, even though it clearly is here. >:(
         let addr = self.memory.read_mode(self.ptr + 3, &ParamMode::Immediate);
         if addr < 0 {
             panic!("cannot use negative value {} as address", addr)
