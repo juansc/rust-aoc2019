@@ -230,7 +230,7 @@ impl IntCodeComputer {
                     panic!("Attempting to read from data stream with no more data")
                 }
                 DsRead::Data(d) => {
-                    let addr = self.parse_unary_op();
+                    let addr = self.memory.read(self.ptr + 1);
                     self.memory.write(addr as u32, d);
                     self.ptr += 2;
                     (0, last_ptr)
@@ -238,7 +238,7 @@ impl IntCodeComputer {
             },
             // Output
             Instruction::Write { modes } => {
-                let val = self.memory.read_mode(self.ptr + 1, &modes[0]);
+                let val = self.parse_unary_op(&modes[0]);
                 self.output.write(val);
                 self.ptr += 2;
                 (0, last_ptr)
@@ -274,8 +274,8 @@ impl IntCodeComputer {
         }
     }
 
-    fn parse_unary_op(&self) -> i32 {
-        self.memory.read(self.ptr + 1)
+    fn parse_unary_op(&self, mode: &ParamMode) -> i32 {
+        self.memory.read_mode(self.ptr + 1, mode)
     }
 
     fn parse_trinary_op(&self, modes: [ParamMode; 3]) -> (i32, i32, u32) {

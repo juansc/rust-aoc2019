@@ -25,9 +25,25 @@ fn part1(memory: &[i32]) -> i32 {
         if *val != 0 && ind != output_stream.len() - 1 {
             panic!("test failed, expected a non-zero output for test diagnostic")
         }
-        if ind == output_stream.len() - 1 {
-            return *val;
-        }
     }
-    0
+    *output_stream.last().unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::part1;
+    use aoc2019::util;
+
+    #[test]
+    fn test_part1() {
+        let memory: Vec<i32> = util::lines_from_file("./input/day05.txt")
+            .first()
+            .unwrap()
+            .split(',')
+            .map(|x| x.parse::<i32>())
+            .filter_map(Result::ok)
+            .collect();
+
+        assert_eq!(part1(&memory), 15386262);
+    }
 }
