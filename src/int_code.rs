@@ -16,7 +16,7 @@ pub struct DataStream {
 }
 
 impl DataStream {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             buffer: Memory {
                 memory: vec![0i32; 1000],
@@ -39,7 +39,7 @@ impl DataStream {
         }
     }
 
-    fn write(&mut self, val: i32) {
+    pub fn write(&mut self, val: i32) {
         self.buffer.write(self.producer_ind, val);
         self.producer_ind += 1;
     }
@@ -57,9 +57,25 @@ impl DataStream {
         DsRead::Data(out)
     }
 
+    pub fn read_all(&mut self) -> Vec<i32> {
+        let mut output = vec![];
+        loop {
+            let out = self.read();
+            match out {
+                DsRead::Closed | DsRead::NoData => {
+                    return output;
+                }
+                DsRead::Data(d) => output.push(d),
+            }
+        }
+    }
+
+    /*
+     * Will probably need after we have many computers chained together
     fn close(&mut self) {
         self.is_closed = true;
     }
+    */
 }
 
 /// Memory manages the memory of the IntCodeComputer. It can read from address, or it can read from
@@ -69,9 +85,12 @@ pub struct Memory {
 }
 
 impl Memory {
+    /*
     fn new() -> Self {
         Memory { memory: Vec::new() }
     }
+    */
+
     /// Returns the value at the specified address
     pub fn read(&self, addr: u32) -> i32 {
         self.memory[addr as usize]
@@ -114,7 +133,7 @@ impl Memory {
 pub struct IntCodeComputer {
     ptr: u32,
     memory: Memory,
-    input: DataStream,
+    pub input: DataStream,
     output: DataStream,
 }
 
@@ -191,7 +210,6 @@ impl IntCodeComputer {
             // Add
             Instruction::Add { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("{} {} {} ", a, b, addr);
                 self.add(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
@@ -219,8 +237,8 @@ impl IntCodeComputer {
                 }
             },
             // Output
-            Instruction::Write { modes: _ } => {
-                let val = self.memory.read_ptr(self.ptr + 1);
+            Instruction::Write { modes } => {
+                let val = self.memory.read_mode(self.ptr + 1, &modes[0]);
                 self.output.write(val);
                 self.ptr += 2;
                 (0, last_ptr)
@@ -257,7 +275,7 @@ impl IntCodeComputer {
     }
 
     fn parse_unary_op(&self) -> i32 {
-        self.memory.read_ptr(self.ptr + 1)
+        self.memory.read(self.ptr + 1)
     }
 
     fn parse_trinary_op(&self, modes: [ParamMode; 3]) -> (i32, i32, u32) {
@@ -296,7 +314,7 @@ impl IntCodeComputer {
         self.memory.write(addr, a * b)
     }
 
-    fn attach_input(&mut self, input: DataStream) {
+    pub fn attach_input(&mut self, input: DataStream) {
         self.input = input
     }
 
