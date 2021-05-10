@@ -14,3 +14,13 @@ pub fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
         .map(|l| l.expect("Could not parse line"))
         .collect()
 }
+
+pub fn read_int_code_memory(filename: impl AsRef<Path>) -> Vec<i32> {
+    lines_from_file(filename)
+        .first()
+        .unwrap()
+        .split(',')
+        .map(|x| x.parse::<i32>())
+        .filter_map(Result::ok)
+        .collect()
+}

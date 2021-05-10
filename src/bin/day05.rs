@@ -1,13 +1,7 @@
 use aoc2019::{int_code, util};
 
 fn main() {
-    let memory: Vec<i32> = util::lines_from_file("./input/day05.txt")
-        .first()
-        .unwrap()
-        .split(',')
-        .map(|x| x.parse::<i32>())
-        .filter_map(Result::ok)
-        .collect();
+    let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
 
     println!("Part 1 Solution: {}", part1(&memory));
 }
@@ -36,13 +30,7 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let memory: Vec<i32> = util::lines_from_file("./input/day05.txt")
-            .first()
-            .unwrap()
-            .split(',')
-            .map(|x| x.parse::<i32>())
-            .filter_map(Result::ok)
-            .collect();
+        let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
 
         assert_eq!(part1(&memory), 15386262);
     }

@@ -30,13 +30,7 @@ fn part2(memory: &[i32]) -> i32 {
 }
 
 fn main() {
-    let memory: Vec<i32> = util::lines_from_file("./input/day02.txt")
-        .first()
-        .unwrap()
-        .split(',')
-        .map(|x| x.parse::<i32>())
-        .filter_map(Result::ok)
-        .collect();
+    let memory: Vec<i32> = util::read_int_code_memory("./input/day02.txt");
 
     println!("Solution for part 1: {}", part1(&memory));
     println!("Solution for part 2: {}", part2(&memory));
@@ -51,26 +45,14 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let memory: Vec<i32> = util::lines_from_file("./input/day02.txt")
-            .first()
-            .unwrap()
-            .split(',')
-            .map(|x| x.parse::<i32>())
-            .filter_map(Result::ok)
-            .collect();
+        let memory: Vec<i32> = util::read_int_code_memory("./input/day02.txt");
 
         assert_eq!(part1(&memory), 4484226);
     }
 
     #[test]
     fn test_part2() {
-        let memory: Vec<i32> = util::lines_from_file("./input/day02.txt")
-            .first()
-            .unwrap()
-            .split(',')
-            .map(|x| x.parse::<i32>())
-            .filter_map(Result::ok)
-            .collect();
+        let memory: Vec<i32> = util::read_int_code_memory("./input/day02.txt");
 
         assert_eq!(part2(&memory), 5696);
     }
