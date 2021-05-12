@@ -142,6 +142,10 @@ enum Instruction {
     Mult { modes: [ParamMode; 3] },
     Read { modes: [ParamMode; 1] },
     Write { modes: [ParamMode; 1] },
+    JumpIfTrue { modes: [ParamMode; 2] },
+    JumpIfFalse { modes: [ParamMode; 2] },
+    LessThan { modes: [ParamMode; 3] },
+    Equals { modes: [ParamMode; 3] },
     End,
 }
 
@@ -185,6 +189,32 @@ fn parse_instruction(val: i32) -> Instruction {
         4 => Instruction::Write {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
+        5 => Instruction::JumpIfTrue {
+            modes: [
+                ParamMode::parse((val / 100) % 10),
+                ParamMode::parse((val / 1000) % 10),
+            ],
+        },
+        6 => Instruction::JumpIfFalse {
+            modes: [
+                ParamMode::parse((val / 100) % 10),
+                ParamMode::parse((val / 1000) % 10),
+            ],
+        },
+        7 => Instruction::LessThan {
+            modes: [
+                ParamMode::parse((val / 100) % 10),
+                ParamMode::parse((val / 1000) % 10),
+                ParamMode::parse((val / 10000) % 10),
+            ],
+        },
+        8 => Instruction::Equals {
+            modes: [
+                ParamMode::parse((val / 100) % 10),
+                ParamMode::parse((val / 1000) % 10),
+                ParamMode::parse((val / 10000) % 10),
+            ],
+        },
         99 => Instruction::End,
         _ => panic!("unexpected val for opcode {}", op_code),
     }
@@ -210,6 +240,7 @@ impl IntCodeComputer {
             // Add
             Instruction::Add { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
+                println!("At add {} {} {}", a, b, addr);
                 self.add(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
@@ -217,6 +248,7 @@ impl IntCodeComputer {
             // Mult
             Instruction::Mult { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
+                println!("At mult {} {} {}", a, b, addr);
                 self.mult(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
@@ -231,6 +263,7 @@ impl IntCodeComputer {
                 }
                 DsRead::Data(d) => {
                     let addr = self.memory.read(self.ptr + 1);
+                    println!("At read addr={} d={}", addr, d);
                     self.memory.write(addr as u32, d);
                     self.ptr += 2;
                     (0, last_ptr)
@@ -239,8 +272,45 @@ impl IntCodeComputer {
             // Output
             Instruction::Write { modes } => {
                 let val = self.parse_unary_op(&modes[0]);
+                println!("At write {}", val);
                 self.output.write(val);
                 self.ptr += 2;
+                (0, last_ptr)
+            }
+            Instruction::JumpIfTrue { modes } => {
+                let (expr, addr) = self.parse_binary_op(modes);
+                println!("At jit {} {}", expr, addr);
+                if expr == 1 {
+                    self.ptr = addr as u32
+                } else {
+                    self.ptr += 3;
+                }
+                (0, last_ptr)
+            }
+            Instruction::JumpIfFalse { modes } => {
+                let (expr, addr) = self.parse_binary_op(modes);
+                println!("At jif {} {}", expr, addr);
+                if expr == 0 {
+                    self.ptr = addr as u32
+                } else {
+                    self.ptr += 3;
+                }
+                (0, last_ptr)
+            }
+            Instruction::LessThan { modes } => {
+                let (a, b, addr) = self.parse_trinary_op(modes);
+                println!("At less than {} {} {}", a, b, addr);
+                let val = if a < b { 1 } else { 0 };
+                self.memory.write(addr, val);
+                self.ptr += 4;
+                (0, last_ptr)
+            }
+            Instruction::Equals { modes } => {
+                let (a, b, addr) = self.parse_trinary_op(modes);
+                println!("At equals {} {} {}", a, b, addr);
+                let val = if a == b { 1 } else { 0 };
+                self.memory.write(addr, val);
+                self.ptr += 4;
                 (0, last_ptr)
             }
             Instruction::End => (1, last_ptr),
@@ -276,6 +346,12 @@ impl IntCodeComputer {
 
     fn parse_unary_op(&self, mode: &ParamMode) -> i32 {
         self.memory.read_mode(self.ptr + 1, mode)
+    }
+
+    fn parse_binary_op(&self, modes: [ParamMode; 2]) -> (i32, i32) {
+        let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
+        let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
+        (a, b)
     }
 
     fn parse_trinary_op(&self, modes: [ParamMode; 3]) -> (i32, i32, u32) {
