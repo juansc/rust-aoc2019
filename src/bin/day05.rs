@@ -27,8 +27,6 @@ fn part2(memory: &[i32]) -> i32 {
     let mem = memory.to_owned();
     // Set the noun and verb according to puzzle
     let mut computer1 = int_code::IntCodeComputer::new(mem);
-    let input_stream = int_code::DataStream::new();
-    computer1.attach_input(input_stream);
     computer1.input.write(5);
     computer1.run();
     let output_stream = computer1.dump_output().read_all();

@@ -70,12 +70,9 @@ impl DataStream {
         }
     }
 
-    /*
-     * Will probably need after we have many computers chained together
     fn close(&mut self) {
         self.is_closed = true;
     }
-    */
 }
 
 /// Memory manages the memory of the IntCodeComputer. It can read from address, or it can read from
@@ -487,6 +484,62 @@ mod tests {
             run_inc_code_computer(vec![1, 1, 1, 4, 99, 5, 6, 0, 99]),
             vec![30, 1, 1, 4, 2, 5, 6, 0, 99],
         );
+    }
+
+    #[test]
+    fn test_int_code_with_params() {
+        assert_eq!(
+            run_inc_code_computer(vec![1002, 4, 3, 4, 33]),
+            vec![1002, 4, 3, 4, 99],
+        );
+    }
+
+    #[test]
+    fn test_comparison_programs() {
+        // This program tests whether or not the provided input is equal to 8.
+        let program = vec![3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8];
+        let actual = run_int_code_with_input(program.to_owned(), 8);
+        assert_eq!(actual, vec![1]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 7);
+        assert_eq!(actual, vec![0]);
+    }
+
+    #[test]
+    fn test_jump() {
+        // This program tests whether the provided input was non-zero.
+        let program = vec![3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9];
+        let actual = run_int_code_with_input(program.to_owned(), 0);
+        assert_eq!(actual, vec![0]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 1);
+        assert_eq!(actual, vec![1]);
+    }
+
+    #[test]
+    fn test_large_input_example() {
+        // This program returns 999 if the input is less than 8, 1000 if the input is 8, and 1001
+        // if the input is greater than 8.
+        let program = vec![
+            3, 21, 1008, 21, 8, 20, 1005, 20, 22, 107, 8, 21, 20, 1006, 20, 31, 1106, 0, 36, 98, 0,
+            0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4,
+            20, 1105, 1, 46, 98, 99,
+        ];
+        let actual = run_int_code_with_input(program.to_owned(), 7);
+        assert_eq!(actual, vec![999]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 8);
+        assert_eq!(actual, vec![1000]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 9);
+        assert_eq!(actual, vec![1001]);
+    }
+
+    fn run_int_code_with_input(memory: Vec<i32>, input: i32) -> Vec<i32> {
+        let mut computer = IntCodeComputer::new(memory.to_owned());
+        computer.input.write(input);
+        computer.run();
+        computer.output.read_all()
     }
 
     fn run_inc_code_computer(input: Vec<i32>) -> Vec<i32> {
