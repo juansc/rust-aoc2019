@@ -232,12 +232,14 @@ impl IntCodeComputer {
     /// was successful.
     fn execute(&mut self) -> (i8, u32) {
         let last_ptr = self.ptr;
+        println!("Ptr at {}", last_ptr);
+        println!("OpCode is {}", self.memory.read(self.ptr));
         let instruction = parse_instruction(self.memory.read(self.ptr));
         match instruction {
             // Add
             Instruction::Add { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At add {} {} {}", a, b, addr);
+                println!("At add a={} b={} addr={}", a, b, addr);
                 self.add(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
@@ -245,7 +247,7 @@ impl IntCodeComputer {
             // Mult
             Instruction::Mult { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At mult {} {} {}", a, b, addr);
+                println!("At mult a={} b={} addr={}", a, b, addr);
                 self.mult(a, b, addr);
                 self.ptr += 4;
                 (0, last_ptr)
@@ -276,8 +278,8 @@ impl IntCodeComputer {
             }
             Instruction::JumpIfTrue { modes } => {
                 let (expr, addr) = self.parse_binary_op(modes);
-                println!("At jit {} {}", expr, addr);
-                if expr == 1 {
+                println!("At jit expr={} addr={}", expr, addr);
+                if expr != 0 {
                     self.ptr = addr as u32
                 } else {
                     self.ptr += 3;
@@ -495,7 +497,7 @@ mod tests {
     }
 
     #[test]
-    fn test_comparison_programs() {
+    fn test_input_eq_8_pos_mode() {
         // This program tests whether or not the provided input is equal to 8.
         let program = vec![3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8];
         let actual = run_int_code_with_input(program.to_owned(), 8);
@@ -503,6 +505,39 @@ mod tests {
 
         let actual = run_int_code_with_input(program.to_owned(), 7);
         assert_eq!(actual, vec![0]);
+    }
+
+    #[test]
+    fn test_input_le_8_pos_mode() {
+        // This program tests whether or not the provided input is equal to 8.
+        let program = vec![3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8];
+        let actual = run_int_code_with_input(program.to_owned(), 8);
+        assert_eq!(actual, vec![0]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 7);
+        assert_eq!(actual, vec![1]);
+    }
+
+    #[test]
+    fn test_input_eq_8_imm_mode() {
+        // This program tests whether or not the provided input is equal to 8.
+        let program = vec![3, 3, 1108, -1, 8, 3, 4, 3, 99];
+        let actual = run_int_code_with_input(program.to_owned(), 8);
+        assert_eq!(actual, vec![1]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 7);
+        assert_eq!(actual, vec![0]);
+    }
+
+    #[test]
+    fn test_input_le_8_imm_mode() {
+        // This program tests whether or not the provided input is equal to 8.
+        let program = vec![3, 3, 1107, -1, 8, 3, 4, 3, 99];
+        let actual = run_int_code_with_input(program.to_owned(), 8);
+        assert_eq!(actual, vec![0]);
+
+        let actual = run_int_code_with_input(program.to_owned(), 7);
+        assert_eq!(actual, vec![1]);
     }
 
     #[test]
