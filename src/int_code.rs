@@ -137,8 +137,8 @@ pub struct IntCodeComputer {
 enum Instruction {
     Add { modes: [ParamMode; 3] },
     Mult { modes: [ParamMode; 3] },
-    Read { modes: [ParamMode; 1] },
-    Write { modes: [ParamMode; 1] },
+    ReadInput { modes: [ParamMode; 1] },
+    WriteOutput { modes: [ParamMode; 1] },
     JumpIfTrue { modes: [ParamMode; 2] },
     JumpIfFalse { modes: [ParamMode; 2] },
     LessThan { modes: [ParamMode; 3] },
@@ -180,10 +180,10 @@ fn parse_instruction(val: i32) -> Instruction {
                 ParamMode::parse(val / 10000 % 10),
             ],
         },
-        3 => Instruction::Read {
+        3 => Instruction::ReadInput {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
-        4 => Instruction::Write {
+        4 => Instruction::WriteOutput {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
         5 => Instruction::JumpIfTrue {
@@ -252,8 +252,7 @@ impl IntCodeComputer {
                 self.ptr += 4;
                 (0, last_ptr)
             }
-            // Save
-            Instruction::Read { modes: _ } => match self.input.read() {
+            Instruction::ReadInput { modes: _ } => match self.input.read() {
                 DsRead::Closed => {
                     panic!("Reading from a closed data stream")
                 }
@@ -268,8 +267,7 @@ impl IntCodeComputer {
                     (0, last_ptr)
                 }
             },
-            // Output
-            Instruction::Write { modes } => {
+            Instruction::WriteOutput { modes } => {
                 let val = self.parse_unary_op(&modes[0]);
                 println!("At write {}", val);
                 self.output.write(val);

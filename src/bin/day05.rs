@@ -4,6 +4,7 @@ fn main() {
     let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
 
     println!("Part 1 Solution: {}", part1(&memory));
+    println!("Part 2 Solution: {}", part2(&memory));
 }
 
 fn part1(memory: &[i32]) -> i32 {
