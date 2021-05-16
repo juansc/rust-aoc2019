@@ -15,6 +15,12 @@ pub struct DataStream {
     consumer_ind: u32,
 }
 
+impl Default for DataStream {
+    fn default() -> Self {
+        DataStream::new()
+    }
+}
+
 impl DataStream {
     pub fn new() -> Self {
         Self {
@@ -82,12 +88,6 @@ pub struct Memory {
 }
 
 impl Memory {
-    /*
-    fn new() -> Self {
-        Memory { memory: Vec::new() }
-    }
-    */
-
     /// Returns the value at the specified address
     pub fn read(&self, addr: u32) -> i32 {
         self.memory[addr as usize]
