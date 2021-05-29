@@ -76,7 +76,7 @@ impl DataStream {
         }
     }
 
-    fn close(&mut self) {
+    pub fn close(&mut self) {
         self.is_closed = true;
     }
 }
@@ -114,15 +114,6 @@ impl Memory {
     fn write(&mut self, addr: u32, val: i32) {
         self.memory[addr as usize] = val;
     }
-
-    /// Writes the specified value at the address specified by the ptr.
-    fn write_ptr(&mut self, ptr: u32, val: i32) {
-        let addr = self.read(ptr);
-        if addr < 0 {
-            panic!("cannot use negative value {} as pointer", addr)
-        }
-        self.write(addr as u32, val);
-    }
 }
 
 /// IntCodeComputer is initialized with memory and executes instructions until it encounters the
@@ -137,7 +128,7 @@ pub struct IntCodeComputer {
 enum Instruction {
     Add { modes: [ParamMode; 3] },
     Mult { modes: [ParamMode; 3] },
-    ReadInput { modes: [ParamMode; 1] },
+    ReadInput,
     WriteOutput { modes: [ParamMode; 1] },
     JumpIfTrue { modes: [ParamMode; 2] },
     JumpIfFalse { modes: [ParamMode; 2] },
@@ -180,9 +171,7 @@ fn parse_instruction(val: i32) -> Instruction {
                 ParamMode::parse(val / 10000 % 10),
             ],
         },
-        3 => Instruction::ReadInput {
-            modes: [ParamMode::parse(val / 100 % 10)],
-        },
+        3 => Instruction::ReadInput {},
         4 => Instruction::WriteOutput {
             modes: [ParamMode::parse(val / 100 % 10)],
         },
@@ -252,7 +241,7 @@ impl IntCodeComputer {
                 self.ptr += 4;
                 (0, last_ptr)
             }
-            Instruction::ReadInput { modes: _ } => match self.input.read() {
+            Instruction::ReadInput => match self.input.read() {
                 DsRead::Closed => {
                     panic!("Reading from a closed data stream")
                 }
@@ -456,14 +445,6 @@ mod tests {
         assert_eq!(m.memory[0], 2);
         m.write(0, 5);
         assert_eq!(m.memory[0], 5);
-    }
-
-    #[test]
-    fn test_write_ptr() {
-        let mut m = Memory { memory: vec![1, 2] };
-        assert_eq!(m.memory, vec![1, 2]);
-        m.write_ptr(0, 0);
-        assert_eq!(m.memory, vec![1, 0]);
     }
 
     #[test]

@@ -21,7 +21,9 @@ fn part1(memory: &[i32]) -> i32 {
             panic!("test failed, expected a non-zero output for test diagnostic")
         }
     }
-    *output_stream.last().unwrap()
+    let out = *output_stream.last().unwrap();
+    computer1.dump_output().close();
+    out
 }
 
 fn part2(memory: &[i32]) -> i32 {
