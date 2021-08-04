@@ -65,6 +65,24 @@ struct IterState {
     in_loop: bool,
 }
 
+impl IterState {
+    fn new(depth: usize) -> Self {
+        Self {
+            depth,
+            i: 0,
+            in_loop: false,
+        }
+    }
+
+    fn copy(&self) -> Self {
+        Self {
+            i: self.i,
+            in_loop: self.in_loop,
+            depth: self.depth,
+        }
+    }
+}
+
 impl Iterator for Permutations {
     type Item = Vec<u32>;
 
@@ -72,31 +90,15 @@ impl Iterator for Permutations {
         // Once we have exceeded the number of possible permutations
         // return None
         if self.counter >= self.limit {
-            println!("counter={} limit={}", self.counter, self.limit);
             return None;
         }
-        println!("ptr={}", self.stack_ptr);
 
         loop {
-            println!("\n\nentering fn");
             let f = self.stack_frames.get(self.stack_ptr as usize).unwrap();
-            let mut current_frame = IterState {
-                i: f.i,
-                depth: f.depth,
-                in_loop: f.in_loop,
-            };
-            println!(
-                "depth={} ptr={} limit={} counter={} i={}",
-                current_frame.depth, self.stack_ptr, self.limit, self.counter, current_frame.i,
-            );
+            let mut current_frame = f.copy();
 
             if current_frame.depth == 1 {
-                println!("Returning because at depth 1");
-                self.stack_frames[self.stack_ptr as usize] = IterState {
-                    i: -1,
-                    in_loop: false,
-                    depth: current_frame.depth,
-                };
+                self.stack_frames[self.stack_ptr as usize] = IterState::new(current_frame.depth);
                 if self.stack_ptr >= 1 {
                     self.stack_ptr -= 1;
                 }
@@ -116,69 +118,31 @@ impl Iterator for Permutations {
             }
 
             // If we have no idea what i is because we haven't set the loop, we know to start the loop now
-            if current_frame.i == -1 {
-                println!("haven't done the loop yet, initializing i to 0");
-                current_frame.i = 0;
-            } else if current_frame.i >= (current_frame.depth - 1) as isize {
-                println!("Finished for loop");
-                self.stack_frames[self.stack_ptr as usize] = IterState {
-                    i: -1,
-                    in_loop: false,
-                    depth: current_frame.depth,
-                };
+            if current_frame.i >= (current_frame.depth - 1) as isize {
+                self.stack_frames[self.stack_ptr as usize] = IterState::new(current_frame.depth);
                 self.stack_ptr -= 1;
                 continue;
             }
 
-            println!("doing the swap");
-            if current_frame.depth % 2 == 0 {
-                self.current
-                    .swap(current_frame.i as usize, current_frame.depth - 1);
-            } else {
-                self.current.swap(0, current_frame.depth - 1);
+            if current_frame.i == -1 {
+                current_frame.i = 0;
             }
-            println!(
-                "Updating current frame state i={} depth={} i_new={}",
-                current_frame.i,
-                current_frame.depth,
-                current_frame.i + 1,
-            );
+
+            let swap_index = if current_frame.depth % 2 == 0 {
+                current_frame.i
+            } else {
+                0
+            };
+            self.current
+                .swap(swap_index as usize, current_frame.depth - 1);
             self.stack_frames[self.stack_ptr as usize] = IterState {
                 i: current_frame.i + 1,
                 depth: current_frame.depth,
                 in_loop: true,
             };
-            self.stack_frames[self.stack_ptr as usize + 1] = IterState {
-                i: -1,
-                depth: current_frame.depth - 1,
-                in_loop: false,
-            };
             self.stack_ptr += 1;
         }
     }
-}
-
-pub fn nonrperms(input: &mut Vec<i32>) -> Vec<Vec<i32>> {
-    let mut stack_state: Vec<usize> = Vec::new();
-    let mut out = Vec::new();
-    out.push(input.clone());
-
-    let mut stack_ptr = 1;
-    let n = input.len();
-    while stack_ptr < n {
-        if stack_state[stack_ptr] < stack_ptr {
-            if stack_ptr % 2 == 0 {
-                input.swap(0, stack_ptr)
-            } else {
-                input.swap(stack_state[stack_ptr], stack_ptr)
-            }
-            out.push(input.clone());
-        } else {
-            stack_state[stack_ptr] = 0;
-            stack_ptr += 1;
-        }
-    }
-    out
 }
 
 pub fn perms(k: usize, input: &mut Vec<i32>) -> Vec<Vec<i32>> {
