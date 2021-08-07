@@ -13,20 +13,17 @@ use std::cmp::max;
 
 fn main() {
     let memory: Vec<i32> = util::read_int_code_memory("./input/day07.txt");
-    //  println!("{}", part1(&memory));
+    println!("{}", part1(&memory));
     println!("{}", part2(&memory));
 }
 
 fn part1(program: &[i32]) -> i32 {
     let num_apps = 5;
-    let mut max_out = 0i32;
-    for perm in util::Permutations::new(num_apps).into_iter() {
-        let out = run_linear_configuration(program.to_owned(), perm);
-        if max_out < out {
-            max_out = out;
-        }
-    }
-    max_out
+    util::Permutations::new(num_apps)
+        .into_iter()
+        .map(|perm| run_linear_configuration(program.to_owned(), perm))
+        .max()
+        .unwrap()
 }
 
 fn run_linear_configuration(program: Vec<i32>, phase_settings: Vec<u32>) -> i32 {
@@ -40,56 +37,42 @@ fn run_linear_configuration(program: Vec<i32>, phase_settings: Vec<u32>) -> i32 
 
     let mut output = 0i32;
     for comp in amps.iter_mut() {
-        println!("input is {}", output);
         comp.input.write(output);
         comp.run();
         output = *comp.dump_output().read_all().first().unwrap();
-        println!("output is {}", output);
     }
-    output
-}
-
-fn run_circular_configuration(program: Vec<i32>, phase_settings: Vec<u32>) -> i32 {
-    let mut amps: Vec<int_code::IntCodeComputer> =
-        Vec::with_capacity(phase_settings.len() as usize);
-    let mut new_phase_settings = Vec::new();
-    for e in phase_settings {
-        new_phase_settings.push(e + 5);
-    }
-    println!("{:?}", new_phase_settings);
-    for phase in new_phase_settings {
-        let mut comp = int_code::IntCodeComputer::new(program.clone());
-        comp.input.write(phase as i32);
-        amps.push(comp);
-    }
-
-    let mut output = 0i32;
-    let mut iterations = 1;
-    while !amps.iter().all(|x| x.is_halted()) {
-        for comp in amps.iter_mut() {
-            //println!("input is {}", output);
-            comp.input.write(output);
-            comp.run();
-            output = *comp.dump_output().read_all().first().unwrap();
-            comp.clear_output();
-            //println!("output is {}", output)
-        }
-        iterations += 1;
-    }
-    println!("{}", iterations);
     output
 }
 
 fn part2(program: &[i32]) -> i32 {
     let num_apps = 5;
-    let mut max_out = 0i32;
-    for perm in util::Permutations::new(num_apps).into_iter() {
-        let out = run_circular_configuration(program.to_owned(), perm);
-        if max_out < out {
-            max_out = out;
+    util::Permutations::new(num_apps)
+        .into_iter()
+        .map(|perm| run_circular_configuration(program.to_owned(), perm))
+        .max()
+        .unwrap()
+}
+
+fn run_circular_configuration(program: Vec<i32>, phase_settings: Vec<u32>) -> i32 {
+    let mut amps: Vec<int_code::IntCodeComputer> =
+        Vec::with_capacity(phase_settings.len() as usize);
+    for phase in phase_settings {
+        let mut comp = int_code::IntCodeComputer::new(program.clone());
+        // The shift settings for the new amplifiers are 5-9
+        comp.input.write(5 + phase as i32);
+        amps.push(comp);
+    }
+
+    let mut output = 0i32;
+    while !amps.iter().all(|x| x.is_halted()) {
+        for comp in amps.iter_mut() {
+            comp.input.write(output);
+            comp.run();
+            output = *comp.dump_output().read_all().first().unwrap();
+            comp.clear_output();
         }
     }
-    max_out
+    output
 }
 
 #[cfg(test)]
