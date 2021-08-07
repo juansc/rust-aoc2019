@@ -26,7 +26,7 @@ pub fn read_int_code_memory(filename: impl AsRef<Path>) -> Vec<i32> {
         .collect()
 }
 
-struct Permutations {
+pub struct Permutations {
     counter: u32,
     current: Vec<u32>,
     limit: u32,
@@ -35,18 +35,14 @@ struct Permutations {
 }
 
 impl Permutations {
-    fn new(n: usize) -> Self {
+    pub fn new(n: usize) -> Self {
         let mut arr = vec![0u32; n];
         let mut stack_frames = Vec::with_capacity(n);
         let mut limit = 1u32;
         for i in 0..n {
             arr[i] = i as u32;
             limit *= (i as u32) + 1;
-            stack_frames.push(IterState {
-                i: -1,
-                depth: n - i,
-                in_loop: false,
-            });
+            stack_frames.push(IterState::new(n - i));
         }
         Self {
             counter: 0,
@@ -93,6 +89,10 @@ impl Iterator for Permutations {
             return None;
         }
 
+        // At this point the code is pretty much the way it would be. One way to clean this up is
+        // to break up the steps into instructions and map them to numbers or something so when we
+        // go through here we check the stack frame but also the instruction pointer within the frame
+        // that is what instruction are we executing inside the function call.
         loop {
             let f = self.stack_frames.get(self.stack_ptr as usize).unwrap();
             let mut current_frame = f.copy();
@@ -103,7 +103,6 @@ impl Iterator for Permutations {
                     self.stack_ptr -= 1;
                 }
                 self.counter += 1;
-                println!("{:?}", self.current);
                 return Some(self.current.clone());
             }
 
@@ -120,7 +119,9 @@ impl Iterator for Permutations {
             // If we have no idea what i is because we haven't set the loop, we know to start the loop now
             if current_frame.i >= (current_frame.depth - 1) as isize {
                 self.stack_frames[self.stack_ptr as usize] = IterState::new(current_frame.depth);
-                self.stack_ptr -= 1;
+                if self.stack_ptr >= 1 {
+                    self.stack_ptr -= 1;
+                }
                 continue;
             }
 
@@ -145,32 +146,9 @@ impl Iterator for Permutations {
     }
 }
 
-pub fn perms(k: usize, input: &mut Vec<i32>) -> Vec<Vec<i32>> {
-    let mut out: Vec<Vec<i32>> = Vec::new();
-    if k == 1 {
-        return vec![input.clone()];
-    }
-    let out_perms = perms(k - 1, input);
-    for e in out_perms {
-        out.push(e.clone());
-    }
-    for i in 0..k - 1 {
-        if k % 2 == 0 {
-            input.swap(i, k - 1);
-        } else {
-            input.swap(0, k - 1);
-        }
-        let out_perms = perms(k - 1, input);
-        for e in out_perms {
-            out.push(e.clone());
-        }
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::util::{perms, Permutations};
+    use crate::util::Permutations;
 
     #[test]
     fn test_perm_iterator() {
@@ -178,22 +156,7 @@ mod tests {
         assert_eq!(Permutations::new(2).into_iter().count(), 2);
         assert_eq!(Permutations::new(3).into_iter().count(), 6);
         assert_eq!(Permutations::new(4).into_iter().count(), 24);
-    }
-
-    #[test]
-    fn test_single_elem_permuration() {
-        let mut elements = vec![1i32];
-        assert_eq!(vec![vec![1i32]], perms(elements.len(), &mut elements));
-    }
-
-    #[test]
-    fn test_double_elem_permuration() {
-        let mut elements = vec![0i32, 1i32];
-
-        assert_eq!(
-            vec![vec![0i32, 1i32], vec![1i32, 0i32]],
-            perms(elements.len(), &mut elements)
-        );
+        assert_eq!(Permutations::new(5).into_iter().count(), 120);
     }
 
     #[test]

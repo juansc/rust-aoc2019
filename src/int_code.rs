@@ -1,3 +1,5 @@
+use log::{debug, info};
+
 // IntCodeComputer Section
 enum DsRead {
     // Signals that indicate a read could not succeed. Maybe make these errors?
@@ -31,6 +33,13 @@ impl DataStream {
             producer_ind: 0,
             consumer_ind: 0,
         }
+    }
+
+    fn reset(&mut self) {
+        self.buffer.clear();
+        self.producer_ind = 0;
+        self.consumer_ind = 0;
+        self.is_closed = false;
     }
 
     // TODO: Maybe just use the macro
@@ -93,6 +102,12 @@ impl Memory {
         self.memory[addr as usize]
     }
 
+    fn clear(&mut self) {
+        for i in 0..self.memory.len() {
+            self.memory[i] = 0
+        }
+    }
+
     fn read_mode(&self, val: u32, m: &ParamMode) -> i32 {
         match m {
             ParamMode::Position => self.read_ptr(val),
@@ -123,6 +138,7 @@ pub struct IntCodeComputer {
     memory: Memory,
     pub input: DataStream,
     output: DataStream,
+    state: ComputerState,
 }
 
 enum Instruction {
@@ -152,6 +168,15 @@ impl ParamMode {
             }
         }
     }
+}
+
+type InstructionPointer = u32;
+
+enum ComputerState {
+    Halted,
+    ReadyForInstruction,
+    WaitingForInput,
+    Panic,
 }
 
 fn parse_instruction(val: i32) -> Instruction {
@@ -214,92 +239,122 @@ impl IntCodeComputer {
             memory: Memory { memory },
             input: DataStream::new(),
             output: DataStream::new(),
+            state: ComputerState::ReadyForInstruction,
         }
     }
 
     /// execute evaluates a single instruction. It returns a code indicating whether the execution
     /// was successful.
-    fn execute(&mut self) -> (i8, u32) {
+    fn execute(&mut self) -> (ComputerState, InstructionPointer) {
         let last_ptr = self.ptr;
-        println!("Ptr at {}", last_ptr);
-        println!("OpCode is {}", self.memory.read(self.ptr));
+        debug!("===========================");
+        debug!("Ptr:    {}", last_ptr);
+        debug!("OpCode: {}", self.memory.read(self.ptr));
         let instruction = parse_instruction(self.memory.read(self.ptr));
         match instruction {
-            // Add
             Instruction::Add { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At add a={} b={} addr={}", a, b, addr);
+                debug!("inst: ADD");
+                debug!("a:    {}", a);
+                debug!("b:    {}", b);
+                debug!("addr: {}", addr);
                 self.add(a, b, addr);
                 self.ptr += 4;
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
-            // Mult
             Instruction::Mult { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At mult a={} b={} addr={}", a, b, addr);
+                debug!("inst: MULT");
+                debug!("a:    {}", a);
+                debug!("b:    {}", b);
+                debug!("addr: {}", addr);
                 self.mult(a, b, addr);
                 self.ptr += 4;
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
             Instruction::ReadInput => match self.input.read() {
                 DsRead::Closed => {
                     panic!("Reading from a closed data stream")
                 }
                 DsRead::NoData => {
-                    panic!("Attempting to read from data stream with no more data")
+                    debug!("attempted to read from input but there was none available");
+                    self.state = ComputerState::WaitingForInput;
+                    (ComputerState::WaitingForInput, self.ptr)
                 }
                 DsRead::Data(d) => {
                     let addr = self.memory.read(self.ptr + 1);
-                    println!("At read addr={} d={}", addr, d);
+                    debug!("inst: READ");
+                    debug!("addr: {}", addr);
+                    debug!("data: {}", d);
                     self.memory.write(addr as u32, d);
                     self.ptr += 2;
-                    (0, last_ptr)
+                    self.state = ComputerState::ReadyForInstruction;
+                    (ComputerState::ReadyForInstruction, last_ptr)
                 }
             },
             Instruction::WriteOutput { modes } => {
                 let val = self.parse_unary_op(&modes[0]);
-                println!("At write {}", val);
+                debug!("inst: WRITE");
+                debug!("val: {}", val);
                 self.output.write(val);
                 self.ptr += 2;
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
             Instruction::JumpIfTrue { modes } => {
                 let (expr, addr) = self.parse_binary_op(modes);
-                println!("At jit expr={} addr={}", expr, addr);
+                debug!("inst: JUMP_IF_TRUE");
+                debug!("expr: {}", expr);
+                debug!("addr: {}", addr);
                 if expr != 0 {
                     self.ptr = addr as u32
                 } else {
                     self.ptr += 3;
                 }
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
             Instruction::JumpIfFalse { modes } => {
                 let (expr, addr) = self.parse_binary_op(modes);
-                println!("At jif {} {}", expr, addr);
+                debug!("inst: JUMP_IF_FALSE");
+                debug!("expr: {}", expr);
+                debug!("addr: {}", addr);
                 if expr == 0 {
                     self.ptr = addr as u32
                 } else {
                     self.ptr += 3;
                 }
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
             Instruction::LessThan { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At less than {} {} {}", a, b, addr);
                 let val = if a < b { 1 } else { 0 };
+                debug!("inst: LESS_THAN");
+                debug!("addr: {}", addr);
+                debug!("val: {}", val);
                 self.memory.write(addr, val);
                 self.ptr += 4;
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
             Instruction::Equals { modes } => {
                 let (a, b, addr) = self.parse_trinary_op(modes);
-                println!("At equals {} {} {}", a, b, addr);
                 let val = if a == b { 1 } else { 0 };
+                debug!("inst: EQUALS");
+                debug!("addr: {}", addr);
+                debug!("val: {}", val);
                 self.memory.write(addr, val);
                 self.ptr += 4;
-                (0, last_ptr)
+                self.state = ComputerState::ReadyForInstruction;
+                (ComputerState::ReadyForInstruction, last_ptr)
             }
-            Instruction::End => (1, last_ptr),
+            Instruction::End => {
+                self.state = ComputerState::Halted;
+                (ComputerState::Halted, last_ptr)
+            }
         }
     }
 
@@ -309,17 +364,29 @@ impl IntCodeComputer {
             counter += 1;
             let (out, ptr_addr) = self.execute();
             match out {
-                1 => return,
-                -1 => panic!(
+                ComputerState::Halted => return,
+                ComputerState::ReadyForInstruction => (),
+                ComputerState::Panic => panic!(
                     "encountered unknown opcode. Please inspect memory at {}",
                     ptr_addr
                 ),
-                _ => (),
+                ComputerState::WaitingForInput => {
+                    debug!("int code computer halted, waiting on input");
+                    return;
+                }
             }
             if counter >= 10000 {
                 panic!("program has run more than 10000 operations. Probably stuck in a loop.")
             }
         }
+    }
+
+    pub fn is_halted(&self) -> bool {
+        matches!(self.state, ComputerState::Halted)
+    }
+
+    pub fn is_waiting_for_input(&self) -> bool {
+        matches!(self.state, ComputerState::WaitingForInput)
     }
 
     /// Returns a copy of memory. Note that this only represents a current snapshot; it will not be
@@ -386,6 +453,10 @@ impl IntCodeComputer {
         // TODO: Maybe just return the memory here?
         out.consumer_ind = 0;
         out
+    }
+
+    pub fn clear_output(&mut self) {
+        self.output.reset()
     }
 }
 
@@ -531,6 +602,19 @@ mod tests {
     }
 
     #[test]
+    fn test_is_halted() {
+        let mut computer = IntCodeComputer::new(vec![3, 0, 99]);
+        computer.run();
+        assert!(computer.is_waiting_for_input());
+        computer.run();
+        assert!(computer.is_waiting_for_input());
+        computer.input.write(1);
+        computer.run();
+        assert!(computer.is_halted());
+        assert_eq!(computer.dump_memory().memory, vec![1, 0, 99]);
+    }
+
+    #[test]
     fn test_large_input_example() {
         // This program returns 999 if the input is less than 8, 1000 if the input is 8, and 1001
         // if the input is greater than 8.
@@ -539,13 +623,13 @@ mod tests {
             0, 1002, 21, 125, 20, 4, 20, 1105, 1, 46, 104, 999, 1105, 1, 46, 1101, 1000, 1, 20, 4,
             20, 1105, 1, 46, 98, 99,
         ];
-        let actual = run_int_code_with_input(program.to_owned(), 7);
+        let actual = run_int_code_with_input(program.clone(), 7);
         assert_eq!(actual, vec![999]);
 
-        let actual = run_int_code_with_input(program.to_owned(), 8);
+        let actual = run_int_code_with_input(program.clone(), 8);
         assert_eq!(actual, vec![1000]);
 
-        let actual = run_int_code_with_input(program.to_owned(), 9);
+        let actual = run_int_code_with_input(program.clone(), 9);
         assert_eq!(actual, vec![1001]);
     }
 
