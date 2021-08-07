@@ -3,12 +3,13 @@ use aoc2019::util;
 fn main() {
     let lines = util::lines_from_file("./input/day08.txt");
     println!("Solution for Part 1: {}", part1(lines.as_slice(), 25, 6));
+    println!("Solution for Part 2:\n {}", part2(lines.as_slice(), 25, 6));
 }
 
 fn part1(line: &[String], height: usize, width: usize) -> usize {
     let image = Image::new(line, height, width);
     let mut layer_with_least_zeroes = 0;
-    let mut min_zeroes = usize::max_value();
+    let mut min_zeroes = usize::MAX;
     for i in 0..image.layers {
         let zeroes = image.digits_in_layer(i, 0);
         if zeroes < min_zeroes {
@@ -18,6 +19,11 @@ fn part1(line: &[String], height: usize, width: usize) -> usize {
     }
     image.digits_in_layer(layer_with_least_zeroes, 1)
         * image.digits_in_layer(layer_with_least_zeroes, 2)
+}
+
+fn part2(line: &[String], height: usize, width: usize) -> String {
+    let image = Image::new(line, height, width);
+    image.image_string()
 }
 
 struct Image {
@@ -67,29 +73,57 @@ impl Image {
         n
     }
 
-    fn row(&self, layer: usize, n: usize) -> Option<&[u8]> {
-        if layer - 1 > self.layers {
+    fn pixel(&self, layer: usize, x: usize, y: usize) -> Option<u8> {
+        if x > self.width || y > self.height || layer > self.layers {
             return None;
         }
-        let start = self.layer_size * layer + self.width * n;
-        let end = start + self.width;
-        Some(&self.pixels[start..end])
+        Some(self.pixels[layer * self.layer_size + x + y * self.width])
     }
 
-    fn pixel(&self, layer: usize, x: usize, y: usize) -> Option<u8> {
-        if x - 1 > self.width || y - 1 > self.height || layer - 1 > self.layers {
-            return None;
+    fn image_string(&self) -> String {
+        let mut out: String = String::from("");
+        for y in 0..self.height {
+            for x in 0..self.width {
+                match self.color_for_pixel(x, y) {
+                    Color::Black => {
+                        out.push_str(&String::from(" "));
+                    }
+                    Color::White => {
+                        out.push_str(&String::from("*"));
+                    }
+                    _ => (),
+                }
+            }
+            out.push_str(&String::from("\n"));
         }
-        Some(self.pixels[layer * self.layer_size + x + y * self.height])
+        out
     }
+
+    fn color_for_pixel(&self, x: usize, y: usize) -> Color {
+        for layer in 0..self.layers {
+            let color = self.pixel(layer, x, y).unwrap();
+            match color {
+                0 => return Color::Black,
+                1 => return Color::White,
+                _ => continue,
+            }
+        }
+        Color::Transparent
+    }
+}
+
+enum Color {
+    Black,
+    White,
+    Transparent,
 }
 
 // Tests
 
 #[cfg(test)]
 mod tests {
-    use crate::part1;
     use crate::util;
+    use crate::{part1, part2};
 
     #[test]
     fn test_fuel_for_mass() {
@@ -106,5 +140,29 @@ mod tests {
     fn test_part1() {
         let lines = util::lines_from_file("./input/day08.txt");
         assert_eq!(part1(&lines, 6, 25), 2193);
+    }
+
+    #[test]
+    fn test_part2_simple() {
+        let lines = &[String::from(
+            "222222222222222222222222111111000000000000000000000000",
+        )];
+        let expected = concat!("      \n", "******\n", "      \n");
+        assert_eq!(part2(lines, 3, 6), expected);
+    }
+
+    #[test]
+    fn test_part2() {
+        let lines = util::lines_from_file("./input/day08.txt");
+        // Should print out string that says YEHEF
+        let expected = concat!(
+            "*   ***** *  * **** **** \n",
+            "*   **    *  * *    *    \n",
+            " * * ***  **** ***  ***  \n",
+            "  *  *    *  * *    *    \n",
+            "  *  *    *  * *    *    \n",
+            "  *  **** *  * **** *    \n"
+        );
+        assert_eq!(part2(&lines, 6, 25), expected);
     }
 }
