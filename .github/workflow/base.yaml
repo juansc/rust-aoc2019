@@ -1,0 +1,50 @@
+# You can call this whatever you want — the name doesn't really matter.
+name: CI
+# Runs on all PRs and pushes to any branch. See the section
+# on event hooks for other options.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Jobs go here. Most of is article is about things
+  # to put in this section.
+  test-versions:
+    name: Test Rust ${{ matrix.rust }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # if you have an MSRV, you can of course include it here too.
+        rust: [stable, beta, nightly]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: ${{ matrix.rust }}
+      # You may want to test other featuresets here...
+      - run: cargo test --verbose
+
+  clippy:
+    name: Lint with Clippy
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          components: clippy
+      - run: cargo clippy --workspace --all-targets --verbose --no-default-features
+
+  rustfmt:
+    name: Verify code formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: hecrj/setup-rust-action@v1
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
