@@ -30,8 +30,9 @@ pub struct Permutations {
     counter: u32,
     current: Vec<u32>,
     limit: u32,
+    n: usize,
     stack_frames: Vec<IterState>,
-    stack_ptr: u32,
+    stack_ptr: usize,
 }
 
 impl Permutations {
@@ -48,9 +49,22 @@ impl Permutations {
             counter: 0,
             current: arr,
             limit,
+            n: n,
             stack_frames,
             // Point to the top of the stack
             stack_ptr: 0,
+        }
+    }
+
+    fn call_into_next_frame(&mut self) {
+        self.stack_ptr += 1;
+        self.stack_frames[self.stack_ptr as usize] =
+            IterState::new((self.n - self.stack_ptr) as usize);
+    }
+
+    fn exit_current_frame(&mut self) {
+        if self.stack_ptr >= 1 {
+            self.stack_ptr -= 1;
         }
     }
 }
@@ -94,54 +108,45 @@ impl Iterator for Permutations {
         // go through here we check the stack frame but also the instruction pointer within the frame
         // that is what instruction are we executing inside the function call.
         loop {
-            let f = self.stack_frames.get(self.stack_ptr as usize).unwrap();
-            let mut current_frame = f.copy();
+            let mut current_frame = self
+                .stack_frames
+                .get(self.stack_ptr as usize)
+                .unwrap()
+                .copy();
 
             if current_frame.depth == 1 {
-                self.stack_frames[self.stack_ptr as usize] = IterState::new(current_frame.depth);
-                if self.stack_ptr >= 1 {
-                    self.stack_ptr -= 1;
-                }
+                self.exit_current_frame();
                 self.counter += 1;
                 return Some(self.current.clone());
             }
 
             if !current_frame.in_loop {
-                self.stack_frames[self.stack_ptr as usize] = IterState {
-                    i: current_frame.i,
-                    in_loop: true,
-                    depth: current_frame.depth,
-                };
-                self.stack_ptr += 1;
+                current_frame.in_loop = true;
+                self.stack_frames[self.stack_ptr as usize] = current_frame;
+                self.call_into_next_frame();
+                continue;
+            }
+
+            // If we have completed the for loop we exit
+            if current_frame.i >= (current_frame.depth - 1) as isize {
+                self.exit_current_frame();
                 continue;
             }
 
             // If we have no idea what i is because we haven't set the loop, we know to start the loop now
-            if current_frame.i >= (current_frame.depth - 1) as isize {
-                self.stack_frames[self.stack_ptr as usize] = IterState::new(current_frame.depth);
-                if self.stack_ptr >= 1 {
-                    self.stack_ptr -= 1;
-                }
-                continue;
-            }
-
             if current_frame.i == -1 {
                 current_frame.i = 0;
             }
 
             let swap_index = if current_frame.depth % 2 == 0 {
-                current_frame.i
+                current_frame.i as usize
             } else {
                 0
             };
-            self.current
-                .swap(swap_index as usize, current_frame.depth - 1);
-            self.stack_frames[self.stack_ptr as usize] = IterState {
-                i: current_frame.i + 1,
-                depth: current_frame.depth,
-                in_loop: true,
-            };
-            self.stack_ptr += 1;
+            self.current.swap(swap_index, current_frame.depth - 1);
+            current_frame.i += 1;
+            self.stack_frames[self.stack_ptr as usize] = current_frame;
+            self.call_into_next_frame();
         }
     }
 }
