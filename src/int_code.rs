@@ -141,15 +141,18 @@ pub struct IntCodeComputer {
     state: ComputerState,
 }
 
+type BinaryModes = [ParamMode; 2];
+type TrinaryModes = [ParamMode; 3];
+
 enum Instruction {
-    Add { modes: [ParamMode; 3] },
-    Mult { modes: [ParamMode; 3] },
+    Add { modes: TrinaryModes },
+    Mult { modes: TrinaryModes },
     ReadInput,
-    WriteOutput { modes: [ParamMode; 1] },
-    JumpIfTrue { modes: [ParamMode; 2] },
-    JumpIfFalse { modes: [ParamMode; 2] },
-    LessThan { modes: [ParamMode; 3] },
-    Equals { modes: [ParamMode; 3] },
+    WriteOutput { modes: ParamMode },
+    JumpIfTrue { modes: BinaryModes },
+    JumpIfFalse { modes: BinaryModes },
+    LessThan { modes: TrinaryModes },
+    Equals { modes: TrinaryModes },
     End,
 }
 
@@ -172,6 +175,7 @@ impl ParamMode {
 
 type InstructionPointer = u32;
 
+#[derive(Copy, Clone)]
 enum ComputerState {
     Halted,
     ReadyForInstruction,
@@ -198,7 +202,7 @@ fn parse_instruction(val: i32) -> Instruction {
         },
         3 => Instruction::ReadInput {},
         4 => Instruction::WriteOutput {
-            modes: [ParamMode::parse(val / 100 % 10)],
+            modes: ParamMode::parse(val / 100 % 10),
         },
         5 => Instruction::JumpIfTrue {
             modes: [
@@ -243,6 +247,106 @@ impl IntCodeComputer {
         }
     }
 
+    fn exec_add(&mut self, modes: TrinaryModes) {
+        let (a, b, addr) = self.parse_trinary_op(modes);
+        debug!("inst: ADD");
+        debug!("a:    {}", a);
+        debug!("b:    {}", b);
+        debug!("addr: {}", addr);
+        self.add(a, b, addr);
+        self.ptr += 4;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_mult(&mut self, modes: TrinaryModes) {
+        let (a, b, addr) = self.parse_trinary_op(modes);
+        debug!("inst: MULT");
+        debug!("a:    {}", a);
+        debug!("b:    {}", b);
+        debug!("addr: {}", addr);
+        self.mult(a, b, addr);
+        self.ptr += 4;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_read(&mut self) {
+        match self.input.read() {
+            DsRead::Closed => {
+                panic!("Reading from a closed data stream")
+            }
+            DsRead::NoData => {
+                debug!("attempted to read from input but there was none available");
+                self.state = ComputerState::WaitingForInput;
+            }
+            DsRead::Data(d) => {
+                let addr = self.memory.read(self.ptr + 1);
+                debug!("inst: READ");
+                debug!("addr: {}", addr);
+                debug!("data: {}", d);
+                self.memory.write(addr as u32, d);
+                self.ptr += 2;
+                self.state = ComputerState::ReadyForInstruction;
+            }
+        }
+    }
+
+    fn exec_write(&mut self, mode: ParamMode) {
+        let val = self.parse_unary_op(&mode);
+        debug!("inst: WRITE");
+        debug!("val: {}", val);
+        self.output.write(val);
+        self.ptr += 2;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_jump_if_true(&mut self, modes: BinaryModes) {
+        let (expr, addr) = self.parse_binary_op(modes);
+        debug!("inst: JUMP_IF_TRUE");
+        debug!("expr: {}", expr);
+        debug!("addr: {}", addr);
+        if expr != 0 {
+            self.ptr = addr as u32
+        } else {
+            self.ptr += 3;
+        }
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_jump_if_false(&mut self, modes: BinaryModes) {
+        let (expr, addr) = self.parse_binary_op(modes);
+        debug!("inst: JUMP_IF_FALSE");
+        debug!("expr: {}", expr);
+        debug!("addr: {}", addr);
+        if expr == 0 {
+            self.ptr = addr as u32
+        } else {
+            self.ptr += 3;
+        }
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_less_than(&mut self, modes: TrinaryModes) {
+        let (a, b, addr) = self.parse_trinary_op(modes);
+        let val = if a < b { 1 } else { 0 };
+        debug!("inst: LESS_THAN");
+        debug!("addr: {}", addr);
+        debug!("val: {}", val);
+        self.memory.write(addr, val);
+        self.ptr += 4;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
+    fn exec_equals(&mut self, modes: TrinaryModes) {
+        let (a, b, addr) = self.parse_trinary_op(modes);
+        let val = if a == b { 1 } else { 0 };
+        debug!("inst: EQUALS");
+        debug!("addr: {}", addr);
+        debug!("val: {}", val);
+        self.memory.write(addr, val);
+        self.ptr += 4;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
     /// execute evaluates a single instruction. It returns a code indicating whether the execution
     /// was successful.
     fn execute(&mut self) -> (ComputerState, InstructionPointer) {
@@ -252,110 +356,17 @@ impl IntCodeComputer {
         debug!("OpCode: {}", self.memory.read(self.ptr));
         let instruction = parse_instruction(self.memory.read(self.ptr));
         match instruction {
-            Instruction::Add { modes } => {
-                let (a, b, addr) = self.parse_trinary_op(modes);
-                debug!("inst: ADD");
-                debug!("a:    {}", a);
-                debug!("b:    {}", b);
-                debug!("addr: {}", addr);
-                self.add(a, b, addr);
-                self.ptr += 4;
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::Mult { modes } => {
-                let (a, b, addr) = self.parse_trinary_op(modes);
-                debug!("inst: MULT");
-                debug!("a:    {}", a);
-                debug!("b:    {}", b);
-                debug!("addr: {}", addr);
-                self.mult(a, b, addr);
-                self.ptr += 4;
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::ReadInput => match self.input.read() {
-                DsRead::Closed => {
-                    panic!("Reading from a closed data stream")
-                }
-                DsRead::NoData => {
-                    debug!("attempted to read from input but there was none available");
-                    self.state = ComputerState::WaitingForInput;
-                    (ComputerState::WaitingForInput, self.ptr)
-                }
-                DsRead::Data(d) => {
-                    let addr = self.memory.read(self.ptr + 1);
-                    debug!("inst: READ");
-                    debug!("addr: {}", addr);
-                    debug!("data: {}", d);
-                    self.memory.write(addr as u32, d);
-                    self.ptr += 2;
-                    self.state = ComputerState::ReadyForInstruction;
-                    (ComputerState::ReadyForInstruction, last_ptr)
-                }
-            },
-            Instruction::WriteOutput { modes } => {
-                let val = self.parse_unary_op(&modes[0]);
-                debug!("inst: WRITE");
-                debug!("val: {}", val);
-                self.output.write(val);
-                self.ptr += 2;
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::JumpIfTrue { modes } => {
-                let (expr, addr) = self.parse_binary_op(modes);
-                debug!("inst: JUMP_IF_TRUE");
-                debug!("expr: {}", expr);
-                debug!("addr: {}", addr);
-                if expr != 0 {
-                    self.ptr = addr as u32
-                } else {
-                    self.ptr += 3;
-                }
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::JumpIfFalse { modes } => {
-                let (expr, addr) = self.parse_binary_op(modes);
-                debug!("inst: JUMP_IF_FALSE");
-                debug!("expr: {}", expr);
-                debug!("addr: {}", addr);
-                if expr == 0 {
-                    self.ptr = addr as u32
-                } else {
-                    self.ptr += 3;
-                }
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::LessThan { modes } => {
-                let (a, b, addr) = self.parse_trinary_op(modes);
-                let val = if a < b { 1 } else { 0 };
-                debug!("inst: LESS_THAN");
-                debug!("addr: {}", addr);
-                debug!("val: {}", val);
-                self.memory.write(addr, val);
-                self.ptr += 4;
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::Equals { modes } => {
-                let (a, b, addr) = self.parse_trinary_op(modes);
-                let val = if a == b { 1 } else { 0 };
-                debug!("inst: EQUALS");
-                debug!("addr: {}", addr);
-                debug!("val: {}", val);
-                self.memory.write(addr, val);
-                self.ptr += 4;
-                self.state = ComputerState::ReadyForInstruction;
-                (ComputerState::ReadyForInstruction, last_ptr)
-            }
-            Instruction::End => {
-                self.state = ComputerState::Halted;
-                (ComputerState::Halted, last_ptr)
-            }
+            Instruction::Add { modes } => { self.exec_add(modes); }
+            Instruction::Mult { modes } => { self.exec_mult(modes); }
+            Instruction::ReadInput => { self.exec_read(); }
+            Instruction::WriteOutput { modes } => { self.exec_write(modes); }
+            Instruction::JumpIfTrue { modes } => { self.exec_jump_if_true(modes); }
+            Instruction::JumpIfFalse { modes } => { self.exec_jump_if_false(modes); }
+            Instruction::LessThan { modes } => { self.exec_less_than(modes); }
+            Instruction::Equals { modes } => { self.exec_equals(modes); }
+            Instruction::End => { self.state = ComputerState::Halted; }
         }
+        (self.state, last_ptr)
     }
 
     pub fn run(&mut self) {
@@ -401,13 +412,13 @@ impl IntCodeComputer {
         self.memory.read_mode(self.ptr + 1, mode)
     }
 
-    fn parse_binary_op(&self, modes: [ParamMode; 2]) -> (i32, i32) {
+    fn parse_binary_op(&self, modes: BinaryModes) -> (i32, i32) {
         let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
         let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
         (a, b)
     }
 
-    fn parse_trinary_op(&self, modes: [ParamMode; 3]) -> (i32, i32, u32) {
+    fn parse_trinary_op(&self, modes: TrinaryModes) -> (i32, i32, u32) {
         let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
         let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
         // The last param is never supposed to be interpreted as a pointer, it should be read
