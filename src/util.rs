@@ -39,8 +39,8 @@ impl Permutations {
         let mut arr = vec![0u32; n];
         let mut stack_frames = Vec::with_capacity(n);
         let mut limit = 1u32;
-        for i in 0..n {
-            arr[i] = i as u32;
+        for (i, val) in arr.iter_mut().enumerate() {
+            *val = i as u32;
             limit *= (i as u32) + 1;
             stack_frames.push(IterState::new(n - i));
         }
