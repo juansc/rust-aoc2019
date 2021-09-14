@@ -1,4 +1,3 @@
-use std::path::Iter;
 use std::{
     fs::File,
     io::{prelude::*, BufReader},
@@ -49,7 +48,7 @@ impl Permutations {
             counter: 0,
             current: arr,
             limit,
-            n: n,
+            n,
             stack_frames,
             // Point to the top of the stack
             stack_ptr: 0,

@@ -304,11 +304,11 @@ impl IntCodeComputer {
         debug!("inst: JUMP_IF_TRUE");
         debug!("expr: {}", expr);
         debug!("addr: {}", addr);
-        if expr != 0 {
-            self.ptr = addr as u32
+        self.ptr = if expr != 0 {
+            addr as u32
         } else {
-            self.ptr += 3;
-        }
+            self.ptr + 3
+        };
         self.state = ComputerState::ReadyForInstruction;
     }
 
@@ -317,11 +317,11 @@ impl IntCodeComputer {
         debug!("inst: JUMP_IF_FALSE");
         debug!("expr: {}", expr);
         debug!("addr: {}", addr);
-        if expr == 0 {
-            self.ptr = addr as u32
+        self.ptr = if expr == 0 {
+            addr as u32
         } else {
-            self.ptr += 3;
-        }
+            self.ptr + 3
+        };
         self.state = ComputerState::ReadyForInstruction;
     }
 

@@ -1,6 +1,5 @@
 use aoc2019::int_code;
 use aoc2019::util;
-use std::cmp::max;
 
 fn main() {
     let memory: Vec<i32> = util::read_int_code_memory("./input/day07.txt");
