@@ -90,6 +90,32 @@ impl DataStream {
     }
 }
 
+#[cfg(test)]
+mod datastream_test {
+    use crate::int_code::{DataStream, DsRead};
+
+    #[test]
+    fn test_basic_ds() {
+        let mut ds = DataStream::new();
+        // No data at first...
+        assert!(matches!(ds.read(), DsRead::NoData));
+        // We can read some after we've added data, but only once
+        ds.write(5);
+        assert!(matches!(ds.read(), DsRead::Data(5)));
+        assert!(matches!(ds.read(), DsRead::NoData));
+
+        // We can keep reading up to where it wrote
+        ds.write(10);
+        ds.write(20);
+        assert!(matches!(ds.read(), DsRead::Data(10)));
+        assert!(matches!(ds.read(), DsRead::Data(20)));
+        assert!(matches!(ds.read(), DsRead::NoData));
+
+        ds.close();
+        assert!(matches!(ds.read(), DsRead::Closed));
+    }
+}
+
 /// Memory manages the memory of the IntCodeComputer. It can read from address, or it can read from
 /// pointer. It can also write to address and write to pointer
 pub struct Memory {
@@ -130,6 +156,45 @@ impl Memory {
         self.memory[addr as usize] = val;
     }
 }
+
+#[cfg(test)]
+mod memory_tests {
+    use crate::int_code::Memory;
+
+    #[test]
+    fn test_read() {
+        let m = Memory {
+            memory: vec![5, 4, 3, 2, 1],
+        };
+        assert_eq!(m.read(0), 5);
+        assert_eq!(m.read(1), 4);
+        assert_eq!(m.read(2), 3);
+        assert_eq!(m.read(3), 2);
+        assert_eq!(m.read(4), 1);
+    }
+
+    #[test]
+    fn test_read_ptr() {
+        let m = Memory {
+            memory: vec![1, 2, 3, 4, 0],
+        };
+        assert_eq!(m.read_ptr(0), 2);
+        assert_eq!(m.read_ptr(1), 3);
+        assert_eq!(m.read_ptr(2), 4);
+        assert_eq!(m.read_ptr(3), 0);
+        assert_eq!(m.read_ptr(4), 1);
+    }
+
+    #[test]
+    fn test_write() {
+        let mut m = Memory { memory: vec![0] };
+        m.write(0, 2);
+        assert_eq!(m.memory[0], 2);
+        m.write(0, 5);
+        assert_eq!(m.memory[0], 5);
+    }
+}
+
 
 /// IntCodeComputer is initialized with memory and executes instructions until it encounters the
 /// end of program code. It does not validate the code.
@@ -474,60 +539,6 @@ impl IntCodeComputer {
 #[cfg(test)]
 mod tests {
     use crate::int_code::{DataStream, DsRead, IntCodeComputer, Memory};
-
-    #[test]
-    fn test_basic_ds() {
-        let mut ds = DataStream::new();
-        // No data at first...
-        assert!(matches!(ds.read(), DsRead::NoData));
-        // We can read some after we've added data, but only once
-        ds.write(5);
-        assert!(matches!(ds.read(), DsRead::Data(5)));
-        assert!(matches!(ds.read(), DsRead::NoData));
-
-        // We can keep reading up to where it wrote
-        ds.write(10);
-        ds.write(20);
-        assert!(matches!(ds.read(), DsRead::Data(10)));
-        assert!(matches!(ds.read(), DsRead::Data(20)));
-        assert!(matches!(ds.read(), DsRead::NoData));
-
-        ds.close();
-        assert!(matches!(ds.read(), DsRead::Closed));
-    }
-
-    #[test]
-    fn test_read() {
-        let m = Memory {
-            memory: vec![5, 4, 3, 2, 1],
-        };
-        assert_eq!(m.read(0), 5);
-        assert_eq!(m.read(1), 4);
-        assert_eq!(m.read(2), 3);
-        assert_eq!(m.read(3), 2);
-        assert_eq!(m.read(4), 1);
-    }
-
-    #[test]
-    fn test_read_ptr() {
-        let m = Memory {
-            memory: vec![1, 2, 3, 4, 0],
-        };
-        assert_eq!(m.read_ptr(0), 2);
-        assert_eq!(m.read_ptr(1), 3);
-        assert_eq!(m.read_ptr(2), 4);
-        assert_eq!(m.read_ptr(3), 0);
-        assert_eq!(m.read_ptr(4), 1);
-    }
-
-    #[test]
-    fn test_write() {
-        let mut m = Memory { memory: vec![0] };
-        m.write(0, 2);
-        assert_eq!(m.memory[0], 2);
-        m.write(0, 5);
-        assert_eq!(m.memory[0], 5);
-    }
 
     #[test]
     fn test_int_code_computer_basic_instructions() {
