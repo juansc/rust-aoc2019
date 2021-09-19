@@ -1,13 +1,13 @@
 use aoc2019::{int_code, util};
 
 fn main() {
-    let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
+    let memory: Vec<i64> = util::read_int_code_memory("./input/day05.txt");
 
     println!("Part 1 Solution: {}", part1(&memory));
     println!("Part 2 Solution: {}", part2(&memory));
 }
 
-fn part1(memory: &[i32]) -> i32 {
+fn part1(memory: &[i64]) -> i64 {
     let mem = memory.to_owned();
     // Set the noun and verb according to puzzle
     let mut computer1 = int_code::IntCodeComputer::new(mem);
@@ -26,7 +26,7 @@ fn part1(memory: &[i32]) -> i32 {
     out
 }
 
-fn part2(memory: &[i32]) -> i32 {
+fn part2(memory: &[i64]) -> i64 {
     let mem = memory.to_owned();
     // Set the noun and verb according to puzzle
     let mut computer1 = int_code::IntCodeComputer::new(mem);
@@ -43,14 +43,14 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
+        let memory: Vec<i64> = util::read_int_code_memory("./input/day05.txt");
 
         assert_eq!(part1(&memory), 15386262);
     }
 
     #[test]
     fn test_part2() {
-        let memory: Vec<i32> = util::read_int_code_memory("./input/day05.txt");
+        let memory: Vec<i64> = util::read_int_code_memory("./input/day05.txt");
 
         assert_eq!(part2(&memory), 10376124);
     }

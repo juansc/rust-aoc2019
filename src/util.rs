@@ -15,20 +15,20 @@ pub fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
         .collect()
 }
 
-pub fn read_int_code_memory(filename: impl AsRef<Path>) -> Vec<i32> {
+pub fn read_int_code_memory(filename: impl AsRef<Path>) -> Vec<i64> {
     lines_from_file(filename)
         .first()
         .unwrap()
         .split(',')
-        .map(|x| x.parse::<i32>())
+        .map(|x| x.parse::<i64>())
         .filter_map(Result::ok)
         .collect()
 }
 
 pub struct Permutations {
-    counter: u32,
-    current: Vec<u32>,
-    limit: u32,
+    counter: u64,
+    current: Vec<u64>,
+    limit: u64,
     n: usize,
     stack_frames: Vec<IterState>,
     stack_ptr: usize,
@@ -36,12 +36,12 @@ pub struct Permutations {
 
 impl Permutations {
     pub fn new(n: usize) -> Self {
-        let mut arr = vec![0u32; n];
+        let mut arr = vec![0u64; n];
         let mut stack_frames = Vec::with_capacity(n);
-        let mut limit = 1u32;
+        let mut limit = 1u64;
         for (i, val) in arr.iter_mut().enumerate() {
-            *val = i as u32;
-            limit *= (i as u32) + 1;
+            *val = i as u64;
+            limit *= (i as u64) + 1;
             stack_frames.push(IterState::new(n - i));
         }
         Self {
@@ -93,7 +93,7 @@ impl IterState {
 }
 
 impl Iterator for Permutations {
-    type Item = Vec<u32>;
+    type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // Once we have exceeded the number of possible permutations
@@ -167,14 +167,14 @@ mod tests {
     fn test_three_elem_permuration() {
         assert_eq!(
             vec![
-                vec![0u32, 1u32, 2u32],
-                vec![1u32, 0u32, 2u32],
-                vec![2u32, 0u32, 1u32],
-                vec![0u32, 2u32, 1u32],
-                vec![1u32, 2u32, 0u32],
-                vec![2u32, 1u32, 0u32],
+                vec![0u64, 1u64, 2u64],
+                vec![1u64, 0u64, 2u64],
+                vec![2u64, 0u64, 1u64],
+                vec![0u64, 2u64, 1u64],
+                vec![1u64, 2u64, 0u64],
+                vec![2u64, 1u64, 0u64],
             ],
-            Permutations::new(3).into_iter().collect::<Vec<Vec<u32>>>()
+            Permutations::new(3).into_iter().collect::<Vec<Vec<u64>>>()
         );
     }
 }

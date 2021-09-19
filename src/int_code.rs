@@ -6,15 +6,15 @@ enum DsRead {
     Closed,
     NoData,
     // The actual value
-    Data(i32),
+    Data(i64),
 }
 
 /// DataStream is represents a shared buffer that a producer and consumer can write and read to.
 pub struct DataStream {
     buffer: Memory,
     is_closed: bool,
-    producer_ind: u32,
-    consumer_ind: u32,
+    producer_ind: u64,
+    consumer_ind: u64,
 }
 
 impl Default for DataStream {
@@ -27,7 +27,7 @@ impl DataStream {
     pub fn new() -> Self {
         Self {
             buffer: Memory {
-                memory: vec![0i32; 1000],
+                memory: vec![0i64; 1000],
             },
             is_closed: false,
             producer_ind: 0,
@@ -54,7 +54,7 @@ impl DataStream {
         }
     }
 
-    pub fn write(&mut self, val: i32) {
+    pub fn write(&mut self, val: i64) {
         self.buffer.write(self.producer_ind, val);
         self.producer_ind += 1;
     }
@@ -72,7 +72,7 @@ impl DataStream {
         DsRead::Data(out)
     }
 
-    pub fn read_all(&mut self) -> Vec<i32> {
+    pub fn read_all(&mut self) -> Vec<i64> {
         let mut output = vec![];
         loop {
             let out = self.read();
@@ -119,12 +119,12 @@ mod datastream_test {
 /// Memory manages the memory of the IntCodeComputer. It can read from address, or it can read from
 /// pointer. It can also write to address and write to pointer
 pub struct Memory {
-    memory: Vec<i32>,
+    memory: Vec<i64>,
 }
 
 impl Memory {
     /// Returns the value at the specified address
-    pub fn read(&self, addr: u32) -> i32 {
+    pub fn read(&self, addr: u64) -> i64 {
         self.memory[addr as usize]
     }
 
@@ -134,25 +134,31 @@ impl Memory {
         }
     }
 
-    fn read_mode(&self, val: u32, m: &ParamMode) -> i32 {
+    fn read_mode(&self, val: u64, rel_pos: u64, m: &ParamMode) -> i64 {
         match m {
             ParamMode::Position => self.read_ptr(val),
             ParamMode::Immediate => self.read(val),
+            ParamMode::RelativeMode => {
+                // Read out the value at the given address and then adjust it with the relative postition.
+                // Then use that as the new address to read from.
+                let val = (self.read(val) + rel_pos as i64) as u64;
+                self.read(val)
+            }
         }
     }
 
     /// Returns the value at the pointer. It will read out the value at the given address, then use
     /// that value itself as an address and return what that points to.
-    fn read_ptr(&self, ptr: u32) -> i32 {
+    fn read_ptr(&self, ptr: u64) -> i64 {
         let addr = self.read(ptr);
         if addr < 0 {
             panic!("cannot use negative value {} as pointer", addr)
         }
-        self.read(addr as u32)
+        self.read(addr as u64)
     }
 
     /// Writes the specified value at the specified address.
-    fn write(&mut self, addr: u32, val: i32) {
+    fn write(&mut self, addr: u64, val: i64) {
         self.memory[addr as usize] = val;
     }
 }
@@ -199,9 +205,10 @@ mod memory_tests {
 /// IntCodeComputer is initialized with memory and executes instructions until it encounters the
 /// end of program code. It does not validate the code.
 pub struct IntCodeComputer {
-    ptr: u32,
+    ptr: u64,
     memory: Memory,
     pub input: DataStream,
+    rel_pos: u64,
     output: DataStream,
     state: ComputerState,
 }
@@ -218,19 +225,22 @@ enum Instruction {
     JumpIfFalse { modes: BinaryModes },
     LessThan { modes: TrinaryModes },
     Equals { modes: TrinaryModes },
+    AdjustRelativePosition { modes: ParamMode },
     End,
 }
 
 enum ParamMode {
     Position,
     Immediate,
+    RelativeMode,
 }
 
 impl ParamMode {
-    fn parse(v: i32) -> Self {
+    fn parse(v: i64) -> Self {
         match v {
             0 => ParamMode::Position,
             1 => ParamMode::Immediate,
+            2 => ParamMode::RelativeMode,
             _ => {
                 panic!("unexpected val for param mode {}", v)
             }
@@ -238,7 +248,7 @@ impl ParamMode {
     }
 }
 
-type InstructionPointer = u32;
+type InstructionPointer = u64;
 
 #[derive(Copy, Clone)]
 enum ComputerState {
@@ -248,7 +258,7 @@ enum ComputerState {
     Panic,
 }
 
-fn parse_instruction(val: i32) -> Instruction {
+fn parse_instruction(val: i64) -> Instruction {
     let op_code = val % 100;
     match op_code {
         1 => Instruction::Add {
@@ -295,18 +305,28 @@ fn parse_instruction(val: i32) -> Instruction {
                 ParamMode::parse((val / 10000) % 10),
             ],
         },
+        9 => Instruction::AdjustRelativePosition {
+            modes: ParamMode::parse((val / 100) % 10),
+        },
         99 => Instruction::End,
         _ => panic!("unexpected val for opcode {}", op_code),
     }
 }
 
+fn pad_memory(memory: Vec<i64>) -> Vec<i64> {
+    let mut new_memory = memory.clone();
+    new_memory.resize(10000, 0);
+    new_memory
+}
+
 impl IntCodeComputer {
     /// Returns an IntCodeComputer initialized with the given memory.
-    pub fn new(memory: Vec<i32>) -> Self {
+    pub fn new(memory: Vec<i64>) -> Self {
         Self {
             ptr: 0,
-            memory: Memory { memory },
+            memory: Memory { memory: pad_memory(memory) },
             input: DataStream::new(),
+            rel_pos: 0,
             output: DataStream::new(),
             state: ComputerState::ReadyForInstruction,
         }
@@ -348,7 +368,7 @@ impl IntCodeComputer {
                 debug!("inst: READ");
                 debug!("addr: {}", addr);
                 debug!("data: {}", d);
-                self.memory.write(addr as u32, d);
+                self.memory.write(addr as u64, d);
                 self.ptr += 2;
                 self.state = ComputerState::ReadyForInstruction;
             }
@@ -370,7 +390,7 @@ impl IntCodeComputer {
         debug!("expr: {}", expr);
         debug!("addr: {}", addr);
         self.ptr = if expr != 0 {
-            addr as u32
+            addr as u64
         } else {
             self.ptr + 3
         };
@@ -383,7 +403,7 @@ impl IntCodeComputer {
         debug!("expr: {}", expr);
         debug!("addr: {}", addr);
         self.ptr = if expr == 0 {
-            addr as u32
+            addr as u64
         } else {
             self.ptr + 3
         };
@@ -412,6 +432,15 @@ impl IntCodeComputer {
         self.state = ComputerState::ReadyForInstruction;
     }
 
+    fn exec_adjust_rel_pos(&mut self, mode: ParamMode) {
+        let val = self.parse_unary_op(&mode);
+        debug!("inst: ADJUST REL POS");
+        debug!("val: {}", val);
+        self.rel_pos = (self.rel_pos as i64 + val) as u64;
+        self.ptr += 2;
+        self.state = ComputerState::ReadyForInstruction;
+    }
+
     /// execute evaluates a single instruction. It returns a code indicating whether the execution
     /// was successful.
     fn execute(&mut self) -> (ComputerState, InstructionPointer) {
@@ -422,6 +451,7 @@ impl IntCodeComputer {
         let instruction = parse_instruction(self.memory.read(self.ptr));
         match instruction {
             Instruction::Add { modes } => { self.exec_add(modes); }
+            Instruction::AdjustRelativePosition { modes } => { self.exec_adjust_rel_pos(modes); }
             Instruction::Mult { modes } => { self.exec_mult(modes); }
             Instruction::ReadInput => { self.exec_read(); }
             Instruction::WriteOutput { modes } => { self.exec_write(modes); }
@@ -473,19 +503,19 @@ impl IntCodeComputer {
         }
     }
 
-    fn parse_unary_op(&self, mode: &ParamMode) -> i32 {
-        self.memory.read_mode(self.ptr + 1, mode)
+    fn parse_unary_op(&self, mode: &ParamMode) -> i64 {
+        self.memory.read_mode(self.ptr + 1, self.rel_pos, mode)
     }
 
-    fn parse_binary_op(&self, modes: BinaryModes) -> (i32, i32) {
-        let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
-        let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
+    fn parse_binary_op(&self, modes: BinaryModes) -> (i64, i64) {
+        let a = self.memory.read_mode(self.ptr + 1, self.rel_pos, &modes[0]);
+        let b = self.memory.read_mode(self.ptr + 2, self.rel_pos, &modes[1]);
         (a, b)
     }
 
-    fn parse_trinary_op(&self, modes: TrinaryModes) -> (i32, i32, u32) {
-        let a = self.memory.read_mode(self.ptr + 1, &modes[0]);
-        let b = self.memory.read_mode(self.ptr + 2, &modes[1]);
+    fn parse_trinary_op(&self, modes: TrinaryModes) -> (i64, i64, u64) {
+        let a = self.memory.read_mode(self.ptr + 1, self.rel_pos, &modes[0]);
+        let b = self.memory.read_mode(self.ptr + 2, self.rel_pos, &modes[1]);
         // The last param is never supposed to be interpreted as a pointer, it should be read
         // as an immediate. However, according to docs, the last one is never an immediate, it's always
         // a postitional. It seems like there are two types: ints and pointers. The first two arguments
@@ -501,21 +531,21 @@ impl IntCodeComputer {
         // I'll see how the int code evolves, but I will probably have to change the type system
         // to accomodate this apparently contradictory statement about the write arg never being
         // in immediate, even though it clearly is here. >:(
-        let addr = self.memory.read_mode(self.ptr + 3, &ParamMode::Immediate);
+        let addr = self.memory.read_mode(self.ptr + 3, self.rel_pos, &ParamMode::Immediate);
         if addr < 0 {
             panic!("cannot use negative value {} as address", addr)
         }
-        (a, b, addr as u32)
+        (a, b, addr as u64)
     }
 
     /// Computation Operation are simple and just perform arithmetic operations and write to the
     /// specified location. Any kind of work to determine if an operand is read from address or
     /// pointer should be done before calling the function.
-    fn add(&mut self, a: i32, b: i32, addr: u32) {
+    fn add(&mut self, a: i64, b: i64, addr: u64) {
         self.memory.write(addr, a + b)
     }
 
-    fn mult(&mut self, a: i32, b: i32, addr: u32) {
+    fn mult(&mut self, a: i64, b: i64, addr: u64) {
         self.memory.write(addr, a * b)
     }
 
@@ -538,32 +568,67 @@ impl IntCodeComputer {
 
 #[cfg(test)]
 mod tests {
-    use crate::int_code::{DataStream, DsRead, IntCodeComputer, Memory};
+    use crate::int_code::{DataStream, DsRead, IntCodeComputer, Memory, pad_memory};
+
+    struct IntCodeDump {
+        memory: Vec<i64>,
+        output: Vec<i64>,
+    }
+
+    fn run_int_code_with_input(memory: Vec<i64>, input: i64) -> IntCodeDump {
+        let mut computer = IntCodeComputer::new(memory.to_owned());
+        computer.input.write(input);
+        computer.run();
+        IntCodeDump {
+            output: computer.output.read_all(),
+            memory: computer.dump_memory().memory,
+        }
+    }
+
+    fn run_int_code_computer(input: Vec<i64>) -> IntCodeDump {
+        let mut computer = IntCodeComputer::new(input);
+        computer.run();
+        IntCodeDump {
+            output: computer.output.read_all(),
+            memory: computer.dump_memory().memory,
+        }
+    }
+
+    fn assert_int_code_computer_memory_matches(actual: IntCodeDump, expected: Vec<i64>) {
+        // An intcode computer pads its memory with extra space for computation. When comparing
+        // outputs, we also pad the expected memory so we match. The amount of padding is hidden
+        // from the caller.
+        assert_eq!(actual.memory, pad_memory(expected))
+    }
+
+    fn assert_int_code_computer_output_matches(actual: IntCodeDump, expected: Vec<i64>) {
+        assert_eq!(actual.output, expected)
+    }
 
     #[test]
     fn test_int_code_computer_basic_instructions() {
-        assert_eq!(
-            run_inc_code_computer(vec![1, 0, 0, 0, 99]),
+        assert_int_code_computer_memory_matches(
+            run_int_code_computer(vec![1, 0, 0, 0, 99]),
             vec![2, 0, 0, 0, 99],
         );
-        assert_eq!(
-            run_inc_code_computer(vec![2, 3, 0, 3, 99]),
+        assert_int_code_computer_memory_matches(
+            run_int_code_computer(vec![2, 3, 0, 3, 99]),
             vec![2, 3, 0, 6, 99],
         );
-        assert_eq!(
-            run_inc_code_computer(vec![2, 4, 4, 5, 99, 0]),
+        assert_int_code_computer_memory_matches(
+            run_int_code_computer(vec![2, 4, 4, 5, 99, 0]),
             vec![2, 4, 4, 5, 99, 9801],
         );
-        assert_eq!(
-            run_inc_code_computer(vec![1, 1, 1, 4, 99, 5, 6, 0, 99]),
+        assert_int_code_computer_memory_matches(
+            run_int_code_computer(vec![1, 1, 1, 4, 99, 5, 6, 0, 99]),
             vec![30, 1, 1, 4, 2, 5, 6, 0, 99],
         );
     }
 
     #[test]
     fn test_int_code_with_params() {
-        assert_eq!(
-            run_inc_code_computer(vec![1002, 4, 3, 4, 33]),
+        assert_int_code_computer_memory_matches(
+            run_int_code_computer(vec![1002, 4, 3, 4, 33]),
             vec![1002, 4, 3, 4, 99],
         );
     }
@@ -573,10 +638,10 @@ mod tests {
         // This program tests whether or not the provided input is equal to 8.
         let program = vec![3, 9, 8, 9, 10, 9, 4, 9, 99, -1, 8];
         let actual = run_int_code_with_input(program.to_owned(), 8);
-        assert_eq!(actual, vec![1]);
+        assert_int_code_computer_output_matches(actual, vec![1]);
 
         let actual = run_int_code_with_input(program.to_owned(), 7);
-        assert_eq!(actual, vec![0]);
+        assert_int_code_computer_output_matches(actual, vec![0]);
     }
 
     #[test]
@@ -584,10 +649,10 @@ mod tests {
         // This program tests whether or not the provided input is equal to 8.
         let program = vec![3, 9, 7, 9, 10, 9, 4, 9, 99, -1, 8];
         let actual = run_int_code_with_input(program.to_owned(), 8);
-        assert_eq!(actual, vec![0]);
+        assert_int_code_computer_output_matches(actual, vec![0]);
 
         let actual = run_int_code_with_input(program.to_owned(), 7);
-        assert_eq!(actual, vec![1]);
+        assert_int_code_computer_output_matches(actual, vec![1]);
     }
 
     #[test]
@@ -595,10 +660,10 @@ mod tests {
         // This program tests whether or not the provided input is equal to 8.
         let program = vec![3, 3, 1108, -1, 8, 3, 4, 3, 99];
         let actual = run_int_code_with_input(program.to_owned(), 8);
-        assert_eq!(actual, vec![1]);
+        assert_int_code_computer_output_matches(actual, vec![1]);
 
         let actual = run_int_code_with_input(program.to_owned(), 7);
-        assert_eq!(actual, vec![0]);
+        assert_int_code_computer_output_matches(actual, vec![0]);
     }
 
     #[test]
@@ -606,10 +671,10 @@ mod tests {
         // This program tests whether or not the provided input is equal to 8.
         let program = vec![3, 3, 1107, -1, 8, 3, 4, 3, 99];
         let actual = run_int_code_with_input(program.to_owned(), 8);
-        assert_eq!(actual, vec![0]);
+        assert_int_code_computer_output_matches(actual, vec![0]);
 
         let actual = run_int_code_with_input(program.to_owned(), 7);
-        assert_eq!(actual, vec![1]);
+        assert_int_code_computer_output_matches(actual, vec![1]);
     }
 
     #[test]
@@ -617,10 +682,10 @@ mod tests {
         // This program tests whether the provided input was non-zero.
         let program = vec![3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9];
         let actual = run_int_code_with_input(program.to_owned(), 0);
-        assert_eq!(actual, vec![0]);
+        assert_int_code_computer_output_matches(actual, vec![0]);
 
         let actual = run_int_code_with_input(program.to_owned(), 1);
-        assert_eq!(actual, vec![1]);
+        assert_int_code_computer_output_matches(actual, vec![1]);
     }
 
     #[test]
@@ -633,7 +698,7 @@ mod tests {
         computer.input.write(1);
         computer.run();
         assert!(computer.is_halted());
-        assert_eq!(computer.dump_memory().memory, vec![1, 0, 99]);
+        assert_eq!(computer.dump_memory().memory, pad_memory(vec![1, 0, 99]));
     }
 
     #[test]
@@ -646,25 +711,38 @@ mod tests {
             20, 1105, 1, 46, 98, 99,
         ];
         let actual = run_int_code_with_input(program.clone(), 7);
-        assert_eq!(actual, vec![999]);
+        assert_int_code_computer_output_matches(actual, vec![999]);
 
         let actual = run_int_code_with_input(program.clone(), 8);
-        assert_eq!(actual, vec![1000]);
+        assert_int_code_computer_output_matches(actual, vec![1000]);
 
         let actual = run_int_code_with_input(program.clone(), 9);
-        assert_eq!(actual, vec![1001]);
+        assert_int_code_computer_output_matches(actual, vec![1001]);
     }
 
-    fn run_int_code_with_input(memory: Vec<i32>, input: i32) -> Vec<i32> {
-        let mut computer = IntCodeComputer::new(memory.to_owned());
-        computer.input.write(input);
-        computer.run();
-        computer.output.read_all()
-    }
-
-    fn run_inc_code_computer(input: Vec<i32>) -> Vec<i32> {
-        let mut computer = IntCodeComputer::new(input);
-        computer.run();
-        computer.dump_memory().memory
+    #[test]
+    fn test_adj_rel_pos() {
+        // Quine Program is a program that takes in no input and prints out itself.
+        let quine_program = vec![
+            109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
+        ];
+        assert_int_code_computer_output_matches(
+            run_int_code_computer(quine_program.clone()),
+            quine_program.clone(),
+        );
+        let output_16_digit = vec![
+            1102,34915192,34915192,7,4,7,99,0
+        ];
+        assert_int_code_computer_output_matches(
+            run_int_code_computer(output_16_digit.clone()),
+            vec![1219070632396864],
+        );
+        let output_16_digit = vec![
+            104,1125899906842624,99
+        ];
+        assert_int_code_computer_output_matches(
+            run_int_code_computer(output_16_digit.clone()),
+            vec![1125899906842624],
+        );
     }
 }
