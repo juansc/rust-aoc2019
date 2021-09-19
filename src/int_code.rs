@@ -219,7 +219,7 @@ type TrinaryModes = [ParamMode; 3];
 enum Instruction {
     Add { modes: TrinaryModes },
     Mult { modes: TrinaryModes },
-    ReadInput,
+    ReadInput { modes: ParamMode },
     WriteOutput { modes: ParamMode },
     JumpIfTrue { modes: BinaryModes },
     JumpIfFalse { modes: BinaryModes },
@@ -275,7 +275,9 @@ fn parse_instruction(val: i64) -> Instruction {
                 ParamMode::parse(val / 10000 % 10),
             ],
         },
-        3 => Instruction::ReadInput {},
+        3 => Instruction::ReadInput {
+            modes: ParamMode::parse(val / 100 % 10),
+        },
         4 => Instruction::WriteOutput {
             modes: ParamMode::parse(val / 100 % 10),
         },
@@ -354,7 +356,7 @@ impl IntCodeComputer {
         self.state = ComputerState::ReadyForInstruction;
     }
 
-    fn exec_read(&mut self) {
+    fn exec_read(&mut self, mode: ParamMode) {
         match self.input.read() {
             DsRead::Closed => {
                 panic!("Reading from a closed data stream")
@@ -365,10 +367,18 @@ impl IntCodeComputer {
             }
             DsRead::Data(d) => {
                 let addr = self.memory.read(self.ptr + 1);
+                //                let addr = self.memory.read_mode(self.ptr + 1, self.rel_pos, &mode);
                 debug!("inst: READ");
                 debug!("addr: {}", addr);
                 debug!("data: {}", d);
-                self.memory.write(addr as u64, d);
+                match mode {
+                    ParamMode::RelativeMode => {
+                        self.memory.write((addr + self.rel_pos as i64) as u64, d);
+                    }
+                    _ => {
+                        self.memory.write(addr as u64, d);
+                    }
+                }
                 self.ptr += 2;
                 self.state = ComputerState::ReadyForInstruction;
             }
@@ -453,7 +463,7 @@ impl IntCodeComputer {
             Instruction::Add { modes } => { self.exec_add(modes); }
             Instruction::AdjustRelativePosition { modes } => { self.exec_adjust_rel_pos(modes); }
             Instruction::Mult { modes } => { self.exec_mult(modes); }
-            Instruction::ReadInput => { self.exec_read(); }
+            Instruction::ReadInput { modes } => { self.exec_read(modes); }
             Instruction::WriteOutput { modes } => { self.exec_write(modes); }
             Instruction::JumpIfTrue { modes } => { self.exec_jump_if_true(modes); }
             Instruction::JumpIfFalse { modes } => { self.exec_jump_if_false(modes); }
@@ -531,7 +541,14 @@ impl IntCodeComputer {
         // I'll see how the int code evolves, but I will probably have to change the type system
         // to accomodate this apparently contradictory statement about the write arg never being
         // in immediate, even though it clearly is here. >:(
-        let addr = self.memory.read_mode(self.ptr + 3, self.rel_pos, &ParamMode::Immediate);
+        let addr = match modes[2] {
+            ParamMode::RelativeMode => {
+                self.memory.read_mode(self.ptr + 3, self.rel_pos, &ParamMode::RelativeMode)
+            }
+            _ => {
+                self.memory.read_mode(self.ptr + 3, self.rel_pos, &ParamMode::Immediate)
+            }
+        };
         if addr < 0 {
             panic!("cannot use negative value {} as address", addr)
         }
@@ -731,14 +748,14 @@ mod tests {
             quine_program.clone(),
         );
         let output_16_digit = vec![
-            1102,34915192,34915192,7,4,7,99,0
+            1102, 34915192, 34915192, 7, 4, 7, 99, 0,
         ];
         assert_int_code_computer_output_matches(
             run_int_code_computer(output_16_digit.clone()),
             vec![1219070632396864],
         );
         let output_16_digit = vec![
-            104,1125899906842624,99
+            104, 1125899906842624, 99,
         ];
         assert_int_code_computer_output_matches(
             run_int_code_computer(output_16_digit.clone()),
